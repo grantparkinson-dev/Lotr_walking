@@ -1,0 +1,482 @@
+/* ===== CSS Variables ===== */
+:root {
+    --color-parchment: #f4e4bc;
+    --color-parchment-dark: #d4c4a0;
+    --color-ink: #2c1810;
+    --color-ink-light: #4a3728;
+    --color-gold: #ffd700;
+    --color-gold-dark: #b8860b;
+    --color-trail: #ff8c00;
+    --color-walker1: #4a90a4;
+    --color-walker2: #a44a6c;
+    --font-display: 'Cinzel', serif;
+    --font-body: 'Crimson Text', serif;
+    --shadow-soft: 0 4px 20px rgba(44, 24, 16, 0.15);
+    --shadow-strong: 0 8px 32px rgba(44, 24, 16, 0.25);
+    --border-ornate: 2px solid var(--color-ink-light);
+}
+
+/* ===== Base Styles ===== */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+}
+
+body {
+    font-family: var(--font-body);
+    background: linear-gradient(135deg, #1a1209 0%, #2c1810 50%, #1a1209 100%);
+    color: var(--color-ink);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+/* ===== Page Container ===== */
+.page-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 1rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===== Header ===== */
+.header {
+    text-align: center;
+    padding: 2rem 1rem;
+    background: linear-gradient(to bottom, rgba(244, 228, 188, 0.95), rgba(244, 228, 188, 0.85));
+    border-radius: 8px 8px 0 0;
+    border: var(--border-ornate);
+    border-bottom: none;
+    position: relative;
+}
+
+.header::before,
+.header::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--color-gold-dark), transparent);
+}
+
+.header::before {
+    left: 2rem;
+}
+
+.header::after {
+    right: 2rem;
+}
+
+.title {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 5vw, 2.5rem);
+    font-weight: 700;
+    color: var(--color-ink);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    text-shadow: 1px 1px 2px rgba(255, 215, 0, 0.3);
+}
+
+.subtitle {
+    font-style: italic;
+    font-size: 1.1rem;
+    color: var(--color-ink-light);
+}
+
+/* ===== Main Content ===== */
+.main-content {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+    flex: 1;
+    background: var(--color-parchment);
+    border: var(--border-ornate);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+}
+
+/* ===== Map Container ===== */
+.map-container {
+    position: relative;
+    overflow: hidden;
+    background: #1a1209;
+    min-height: 500px;
+}
+
+.map-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.map-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* ===== Journey Path Styles ===== */
+.journey-path-bg {
+    fill: none;
+    stroke: rgba(44, 24, 16, 0.3);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.journey-path-traveled {
+    fill: none;
+    stroke: url(#pathGradient);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: url(#glow);
+    transition: stroke-dashoffset 1.5s ease-out;
+}
+
+/* ===== Landmark Markers ===== */
+.landmark-marker {
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.landmark-dot {
+    fill: var(--color-parchment);
+    stroke: var(--color-ink);
+    stroke-width: 2;
+    transition: transform 0.3s ease;
+}
+
+.landmark-marker:hover .landmark-dot {
+    transform: scale(1.3);
+}
+
+.landmark-label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    fill: var(--color-ink);
+    text-anchor: middle;
+    pointer-events: none;
+}
+
+/* ===== Walker Icons ===== */
+.walker-icon {
+    transition: all 1s ease-out;
+    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.walker-icon.walker-1 {
+    fill: var(--color-walker1);
+}
+
+.walker-icon.walker-2 {
+    fill: var(--color-walker2);
+}
+
+.walker-glow {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* ===== Stats Panel ===== */
+.stats-panel {
+    background: linear-gradient(to bottom, var(--color-parchment), var(--color-parchment-dark));
+    padding: 1.5rem;
+    border-left: var(--border-ornate);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.stats-header h2 {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    text-align: center;
+    color: var(--color-ink);
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-ink-light);
+    letter-spacing: 0.05em;
+}
+
+/* ===== Walker Cards ===== */
+.walkers-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.walker-card {
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid var(--color-ink-light);
+    box-shadow: var(--shadow-soft);
+}
+
+.walker-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.walker-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.walker-avatar.walker-1 {
+    background: var(--color-walker1);
+}
+
+.walker-avatar.walker-2 {
+    background: var(--color-walker2);
+}
+
+.walker-avatar svg {
+    width: 24px;
+    height: 24px;
+    fill: white;
+}
+
+.walker-name {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-ink);
+}
+
+.walker-stats {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+}
+
+.stat-row .label {
+    color: var(--color-ink-light);
+}
+
+.stat-row .value {
+    font-weight: 600;
+    color: var(--color-ink);
+}
+
+.progress-bar-container {
+    margin-top: 0.75rem;
+}
+
+.progress-bar {
+    height: 8px;
+    background: rgba(44, 24, 16, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1s ease-out;
+    background: linear-gradient(90deg, var(--color-gold-dark), var(--color-gold));
+}
+
+.progress-bar-fill.walker-1 {
+    background: linear-gradient(90deg, var(--color-walker1), #6ab4c8);
+}
+
+.progress-bar-fill.walker-2 {
+    background: linear-gradient(90deg, var(--color-walker2), #c86a8c);
+}
+
+.progress-text {
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--color-ink-light);
+    margin-top: 0.25rem;
+}
+
+/* ===== Journey Info ===== */
+.journey-info {
+    padding: 1rem;
+    background: rgba(44, 24, 16, 0.05);
+    border-radius: 8px;
+    border: 1px dashed var(--color-ink-light);
+}
+
+.journey-info h3 {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-ink);
+}
+
+.journey-distance,
+.journey-steps {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+
+/* ===== Current Location ===== */
+.current-location {
+    padding: 1rem;
+    background: rgba(255, 215, 0, 0.1);
+    border-radius: 8px;
+    border: 1px solid var(--color-gold-dark);
+}
+
+.current-location h4 {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    color: var(--color-gold-dark);
+    margin-bottom: 0.5rem;
+}
+
+.current-location .location-name {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    color: var(--color-ink);
+}
+
+/* ===== Last Updated ===== */
+.last-updated {
+    margin-top: auto;
+    font-size: 0.8rem;
+    color: var(--color-ink-light);
+    text-align: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-ink-light);
+}
+
+/* ===== Footer ===== */
+.footer {
+    text-align: center;
+    padding: 1.5rem;
+    margin-top: 1rem;
+    color: var(--color-parchment-dark);
+    font-style: italic;
+    font-size: 0.95rem;
+}
+
+/* ===== Loading Overlay ===== */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(26, 18, 9, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    z-index: 1000;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+.loading-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.loading-overlay p {
+    color: var(--color-parchment);
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    letter-spacing: 0.1em;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid var(--color-parchment-dark);
+    border-top-color: var(--color-gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 900px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-panel {
+        border-left: none;
+        border-top: var(--border-ornate);
+    }
+
+    .map-container {
+        min-height: 400px;
+    }
+}
+
+@media (max-width: 600px) {
+    .page-container {
+        padding: 0.5rem;
+    }
+
+    .header {
+        padding: 1.5rem 1rem;
+    }
+
+    .header::before,
+    .header::after {
+        display: none;
+    }
+
+    .stats-panel {
+        padding: 1rem;
+    }
+
+    .walker-card {
+        padding: 0.75rem;
+    }
+}
+
+/* ===== Print Styles ===== */
+@media print {
+    .loading-overlay {
+        display: none;
+    }
+
+    body {
+        background: white;
+    }
+
+    .page-container {
+        max-width: none;
+    }
+}

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walk to Mordor - Journey Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="page-container">
+        <header class="header">
+            <h1 class="title">The Road Goes Ever On</h1>
+            <p class="subtitle">A Journey from the Shire to Mount Doom</p>
+        </header>
+
+        <main class="main-content">
+            <div class="map-container">
+                <img src="assets/map.png" alt="Middle-earth Map" class="map-image" id="mapImage">
+                <svg class="map-overlay" id="mapOverlay" preserveAspectRatio="xMidYMid meet">
+                    <!-- Journey path will be drawn here -->
+                    <defs>
+                        <filter id="glow">
+                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                        <linearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#ffd700;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#ff8c00;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <g id="journeyPath"></g>
+                    <g id="landmarks"></g>
+                    <g id="walkers"></g>
+                </svg>
+            </div>
+
+            <aside class="stats-panel">
+                <div class="stats-header">
+                    <h2>Fellowship Progress</h2>
+                </div>
+
+                <div class="walkers-container" id="walkersContainer">
+                    <!-- Walker cards will be inserted here -->
+                </div>
+
+                <div class="journey-info">
+                    <h3>The Journey</h3>
+                    <p class="journey-distance">
+                        <span class="label">Total Distance:</span>
+                        <span class="value">1,779 miles</span>
+                    </p>
+                    <p class="journey-steps">
+                        <span class="label">Steps Required:</span>
+                        <span class="value">~3,558,000 steps</span>
+                    </p>
+                </div>
+
+                <div class="current-location" id="currentLocation">
+                    <!-- Current landmark info -->
+                </div>
+
+                <div class="last-updated" id="lastUpdated">
+                    <span class="label">Last updated:</span>
+                    <span class="value" id="updateTime">--</span>
+                </div>
+            </aside>
+        </main>
+
+        <footer class="footer">
+            <p>"Not all those who wander are lost." &mdash; J.R.R. Tolkien</p>
+        </footer>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <p>Loading journey data...</p>
+    </div>
+
+    <script src="data/route.js"></script>
+    <script src="js/sheets.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
