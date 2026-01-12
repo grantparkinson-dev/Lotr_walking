@@ -31,6 +31,9 @@ const MapRenderer = {
     mapImage: null,
     tooltip: null,
 
+    // Track if full image is loaded
+    fullImageLoaded: false,
+
     /**
      * Initialize the map renderer
      */
@@ -46,12 +49,67 @@ const MapRenderer = {
         // Create tooltip element
         this.createTooltip();
 
-        // Wait for map image to load
-        if (this.mapImage.complete) {
-            this.setupMap();
+        // Set up with placeholder first, then lazy load full image
+        const fullSrc = this.mapImage.dataset.src;
+
+        // Wait for placeholder to load first
+        if (this.mapImage.complete && this.mapImage.naturalWidth > 0) {
+            this.setupMapWithPlaceholder(fullSrc);
         } else {
-            this.mapImage.addEventListener('load', () => this.setupMap());
+            this.mapImage.addEventListener('load', () => this.setupMapWithPlaceholder(fullSrc));
+            this.mapImage.addEventListener('error', () => this.setupMapWithPlaceholder(fullSrc));
         }
+    },
+
+    /**
+     * Set up map with placeholder, then load full image
+     */
+    setupMapWithPlaceholder(fullSrc) {
+        // Use known dimensions for the full image to set up the map correctly
+        // This ensures path/landmarks are positioned correctly even before full image loads
+        this.imageWidth = 7680;
+        this.imageHeight = 4386;
+
+        // Set up SVG with full image dimensions
+        this.svg.setAttribute('viewBox', `0 0 ${this.imageWidth} ${this.imageHeight}`);
+        this.svg.setAttribute('width', this.imageWidth);
+        this.svg.setAttribute('height', this.imageHeight);
+
+        // Draw path and landmarks immediately
+        this.drawJourneyPath();
+        this.drawLandmarks();
+        this.setupControls();
+
+        // Center on journey
+        setTimeout(() => this.centerOnJourney(), 100);
+
+        // Now lazy load the full resolution image
+        if (fullSrc) {
+            this.lazyLoadFullImage(fullSrc);
+        }
+    },
+
+    /**
+     * Lazy load the full resolution image
+     */
+    lazyLoadFullImage(src) {
+        const fullImage = new Image();
+
+        fullImage.onload = () => {
+            // Swap to full image
+            this.mapImage.src = src;
+            this.fullImageLoaded = true;
+            this.mapImage.classList.add('loaded');
+        };
+
+        fullImage.onerror = () => {
+            // If WebP fails, try falling back to PNG
+            if (src.endsWith('.webp')) {
+                this.lazyLoadFullImage(src.replace('.webp', '.png'));
+            }
+        };
+
+        fullImage.src = src;
     },
 
     /**
@@ -102,28 +160,6 @@ const MapRenderer = {
         this.tooltip.classList.remove('visible');
     },
 
-    /**
-     * Set up map after image loads
-     */
-    setupMap() {
-        this.imageWidth = this.mapImage.naturalWidth;
-        this.imageHeight = this.mapImage.naturalHeight;
-
-        // Set up SVG
-        this.svg.setAttribute('viewBox', `0 0 ${this.imageWidth} ${this.imageHeight}`);
-        this.svg.setAttribute('width', this.imageWidth);
-        this.svg.setAttribute('height', this.imageHeight);
-
-        // Draw path and landmarks
-        this.drawJourneyPath();
-        this.drawLandmarks();
-
-        // Set up controls
-        this.setupControls();
-
-        // Center on journey with nice default zoom
-        setTimeout(() => this.centerOnJourney(), 100);
-    },
 
     /**
      * Set up zoom and pan controls

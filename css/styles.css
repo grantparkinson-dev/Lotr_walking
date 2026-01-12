@@ -175,6 +175,12 @@ body {
     max-width: none;
     user-select: none;
     -webkit-user-drag: none;
+    filter: blur(8px);
+    transition: filter 0.5s ease-out;
+}
+
+.map-image.loaded {
+    filter: blur(0);
 }
 
 .map-overlay {
