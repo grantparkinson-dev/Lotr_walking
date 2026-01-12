@@ -289,11 +289,6 @@ body {
 .landmark-marker {
     cursor: pointer;
     pointer-events: auto;
-    transition: transform 0.3s ease;
-}
-
-.landmark-marker:hover {
-    transform: scale(1.15);
 }
 
 .landmark-dot {
@@ -301,28 +296,61 @@ body {
     stroke: #ffd700;
     stroke-width: 3;
     filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
-    transition: all 0.3s ease;
+    transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease;
 }
 
 .landmark-marker:hover .landmark-dot {
     fill: #ffd700;
     stroke: #fff;
-    filter: drop-shadow(0 0 12px rgba(255, 215, 0, 1)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+    stroke-width: 4;
 }
 
-.landmark-label {
-    font-family: 'Cinzel', serif;
-    font-size: 14px;
-    font-weight: 600;
-    fill: #ffd700;
-    stroke: #1a1209;
-    stroke-width: 3px;
-    paint-order: stroke fill;
-    text-anchor: middle;
+/* ===== Landmark Tooltip ===== */
+.landmark-tooltip {
+    position: fixed;
+    background: linear-gradient(135deg, rgba(26, 18, 9, 0.95), rgba(44, 24, 16, 0.95));
+    border: 2px solid var(--color-gold);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    max-width: 280px;
+    z-index: 1000;
     pointer-events: none;
-    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.9));
-    letter-spacing: 0.5px;
+    opacity: 0;
+    transform: translateY(5px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 215, 0, 0.2);
 }
+
+.landmark-tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.landmark-tooltip-name {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--color-gold);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.landmark-tooltip-desc {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--color-parchment);
+    line-height: 1.4;
+    font-style: italic;
+}
+
+.landmark-tooltip-miles {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    color: var(--color-parchment-dark);
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 215, 0, 0.3);
+}
+
 
 /* ===== Walker Icons ===== */
 .walker-group {
@@ -330,31 +358,7 @@ body {
 }
 
 .walker-icon {
-    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8)) drop-shadow(2px 4px 6px rgba(0, 0, 0, 0.7));
-    transition: all 0.3s ease;
-}
-
-.walker-icon.walker-1 {
-    fill: var(--color-walker1);
-}
-
-.walker-icon.walker-2 {
-    fill: var(--color-walker2);
-}
-
-.walker-glow {
-    animation: walkerPulse 2s ease-in-out infinite;
-}
-
-@keyframes walkerPulse {
-    0%, 100% {
-        opacity: 0.4;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 0.8;
-        transform: scale(1.3);
-    }
+    filter: drop-shadow(2px 4px 6px rgba(0, 0, 0, 0.7));
 }
 
 /* ===== Landmark Glow Ring ===== */
@@ -383,10 +387,6 @@ body {
     opacity: 1;
 }
 
-.landmark-reached .landmark-label {
-    fill: #fff;
-}
-
 /* ===== Unreached Landmark (dimmed) ===== */
 .landmark-marker:not(.landmark-reached) .landmark-dot {
     fill: #2a2a2a;
@@ -396,11 +396,6 @@ body {
 
 .landmark-marker:not(.landmark-reached) .landmark-glow-ring {
     opacity: 0.2;
-}
-
-.landmark-marker:not(.landmark-reached) .landmark-label {
-    fill: #aaa;
-    opacity: 0.7;
 }
 
 .landmark-marker:not(.landmark-reached):hover .landmark-dot {
@@ -455,6 +450,40 @@ body {
     letter-spacing: 0.5rem;
     background: var(--color-parchment);
     padding: 0 0.5rem;
+}
+
+/* ===== Walker Toggle ===== */
+.walker-toggle {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.toggle-btn {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    padding: 0.5rem 1.25rem;
+    border: 2px solid var(--color-gold-dark);
+    border-radius: 20px;
+    background: transparent;
+    color: var(--color-ink-light);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.05em;
+}
+
+.toggle-btn:hover {
+    background: rgba(255, 215, 0, 0.1);
+    border-color: var(--color-gold);
+    color: var(--color-ink);
+}
+
+.toggle-btn.active {
+    background: linear-gradient(135deg, var(--color-gold-dark), var(--color-gold));
+    color: var(--color-ink);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
 }
 
 /* ===== Walker Cards ===== */

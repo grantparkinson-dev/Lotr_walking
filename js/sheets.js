@@ -8,31 +8,55 @@ const SheetsAPI = {
     SHEET_ID: '1_zWBYfuWloRJn3K2T1hkWDjxS8sDm7I5',
 
     // Configuration for each walker's sheet tab
-    // Update names and gid values to match your sheet tabs
-    // To add the second person later, uncomment the second line and add their gid
-    walkers: [
-        { name: 'Joely', gid: '72948048' },
-        // { name: 'Kylie', gid: 'THEIR_GID_HERE' },  // Uncomment and add Kylie's sheet gid when ready
-    ],
+    walkerConfigs: {
+        joely: { name: 'Joely', gid: '72948048' },
+        kylie: { name: 'Kylie', gid: '0' },  // Update with Kylie's actual gid
+    },
+
+    // Currently selected walker (default to joely)
+    selectedWalker: 'joely',
 
     /**
-     * Fetches progress for all walkers
+     * Set the selected walker
+     * @param {string} walkerId - 'joely' or 'kylie'
+     */
+    setSelectedWalker(walkerId) {
+        if (this.walkerConfigs[walkerId]) {
+            this.selectedWalker = walkerId;
+            localStorage.setItem('selectedWalker', walkerId);
+        }
+    },
+
+    /**
+     * Get the saved walker selection from localStorage
+     * @returns {string}
+     */
+    getSavedWalker() {
+        return localStorage.getItem('selectedWalker') || 'joely';
+    },
+
+    /**
+     * Fetches progress for the selected walker
      * @returns {Promise<Array<{name: string, miles: number, steps: number}>>}
      */
     async fetchProgress() {
         const results = [];
+        const walker = this.walkerConfigs[this.selectedWalker];
 
-        for (const walker of this.walkers) {
-            try {
-                const data = await this.fetchSheet(walker.gid);
-                results.push({
-                    name: walker.name,
-                    miles: data.totalMiles,
-                    steps: Math.round(data.totalMiles * 2000) // Convert miles to steps
-                });
-            } catch (error) {
-                console.error(`Failed to fetch data for ${walker.name}:`, error);
-            }
+        if (!walker) {
+            console.error('No walker selected');
+            return results;
+        }
+
+        try {
+            const data = await this.fetchSheet(walker.gid);
+            results.push({
+                name: walker.name,
+                miles: data.totalMiles,
+                steps: Math.round(data.totalMiles * 2000) // Convert miles to steps
+            });
+        } catch (error) {
+            console.error(`Failed to fetch data for ${walker.name}:`, error);
         }
 
         return results;
@@ -150,18 +174,24 @@ const SheetsAPI = {
      * @returns {boolean}
      */
     isConfigured() {
+        const walker = this.walkerConfigs[this.selectedWalker];
         return this.SHEET_ID !== 'YOUR_SHEET_ID_HERE' &&
                this.SHEET_ID.length > 10 &&
-               this.walkers.some(w => w.gid !== '0' || w.gid !== '');
+               walker && walker.gid && walker.gid !== '0';
     }
 };
 
 // For demo/testing when no sheet is configured
 const DemoData = {
     getWalkers() {
+        const selectedWalker = SheetsAPI.selectedWalker;
+        if (selectedWalker === 'kylie') {
+            return [
+                { name: 'Kylie', miles: 650.0, steps: 1300000 }
+            ];
+        }
         return [
-            { name: 'Rosie', miles: 813.8, steps: 1627600 },
-            { name: 'Lily', miles: 650.0, steps: 1300000 }
+            { name: 'Joely', miles: 813.8, steps: 1627600 }
         ];
     }
 };

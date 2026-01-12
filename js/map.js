@@ -29,6 +29,7 @@ const MapRenderer = {
     viewport: null,
     wrapper: null,
     mapImage: null,
+    tooltip: null,
 
     /**
      * Initialize the map renderer
@@ -42,12 +43,63 @@ const MapRenderer = {
         this.wrapper = document.getElementById('mapWrapper');
         this.mapImage = document.getElementById('mapImage');
 
+        // Create tooltip element
+        this.createTooltip();
+
         // Wait for map image to load
         if (this.mapImage.complete) {
             this.setupMap();
         } else {
             this.mapImage.addEventListener('load', () => this.setupMap());
         }
+    },
+
+    /**
+     * Create the tooltip element
+     */
+    createTooltip() {
+        this.tooltip = document.createElement('div');
+        this.tooltip.className = 'landmark-tooltip';
+        this.tooltip.innerHTML = `
+            <div class="landmark-tooltip-name"></div>
+            <div class="landmark-tooltip-desc"></div>
+            <div class="landmark-tooltip-miles"></div>
+        `;
+        document.body.appendChild(this.tooltip);
+    },
+
+    /**
+     * Show tooltip for a landmark
+     */
+    showTooltip(waypoint, event) {
+        const nameEl = this.tooltip.querySelector('.landmark-tooltip-name');
+        const descEl = this.tooltip.querySelector('.landmark-tooltip-desc');
+        const milesEl = this.tooltip.querySelector('.landmark-tooltip-miles');
+
+        nameEl.textContent = waypoint.name;
+        descEl.textContent = waypoint.description;
+        milesEl.textContent = `Mile ${waypoint.miles} of ${JourneyRoute.totalMiles}`;
+
+        // Position tooltip near cursor
+        const x = event.clientX + 15;
+        const y = event.clientY + 15;
+
+        // Keep tooltip on screen
+        const rect = this.tooltip.getBoundingClientRect();
+        const maxX = window.innerWidth - 300;
+        const maxY = window.innerHeight - 150;
+
+        this.tooltip.style.left = Math.min(x, maxX) + 'px';
+        this.tooltip.style.top = Math.min(y, maxY) + 'px';
+
+        this.tooltip.classList.add('visible');
+    },
+
+    /**
+     * Hide tooltip
+     */
+    hideTooltip() {
+        this.tooltip.classList.remove('visible');
     },
 
     /**
@@ -346,7 +398,7 @@ const MapRenderer = {
             const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             group.setAttribute('class', 'landmark-marker');
             group.setAttribute('data-miles', waypoint.miles);
-            group.setAttribute('data-name', waypoint.name);
+            group.setAttribute('data-index', index);
 
             // Outer glow ring
             const glowRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -371,17 +423,23 @@ const MapRenderer = {
             innerCircle.setAttribute('fill', 'rgba(255, 255, 255, 0.4)');
             innerCircle.setAttribute('class', 'landmark-highlight');
 
-            // Label with background
-            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text.setAttribute('x', x);
-            text.setAttribute('y', y - 22);
-            text.setAttribute('class', 'landmark-label');
-            text.textContent = waypoint.name;
-
             group.appendChild(glowRing);
             group.appendChild(circle);
             group.appendChild(innerCircle);
-            group.appendChild(text);
+
+            // Add hover events for tooltip
+            group.addEventListener('mouseenter', (e) => {
+                this.showTooltip(waypoint, e);
+            });
+
+            group.addEventListener('mousemove', (e) => {
+                this.showTooltip(waypoint, e);
+            });
+
+            group.addEventListener('mouseleave', () => {
+                this.hideTooltip();
+            });
+
             this.landmarksGroup.appendChild(group);
         });
     },
@@ -411,43 +469,20 @@ const MapRenderer = {
             const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             group.setAttribute('class', `walker-group walker-${index + 1}`);
 
-            // Glow effect
-            const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            glow.setAttribute('r', 25);
-            glow.setAttribute('class', 'walker-glow');
-            glow.setAttribute('fill', index === 0 ? 'rgba(74, 144, 164, 0.4)' : 'rgba(164, 74, 108, 0.4)');
+            // Hobbit PNG image
+            const iconSize = 50;
+            const hobbit = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            hobbit.setAttribute('href', 'assets/hobbit.png');
+            hobbit.setAttribute('width', iconSize);
+            hobbit.setAttribute('height', iconSize);
+            hobbit.setAttribute('x', -iconSize / 2);
+            hobbit.setAttribute('y', -iconSize);
+            hobbit.setAttribute('class', `walker-icon walker-${index + 1}`);
+            hobbit.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
-            // Hobbit silhouette
-            const hobbit = this.createHobbitSVG(index);
-
-            group.appendChild(glow);
             group.appendChild(hobbit);
             this.walkersGroup.appendChild(group);
         });
-    },
-
-    /**
-     * Create hobbit silhouette SVG
-     */
-    createHobbitSVG(index) {
-        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        group.setAttribute('class', `walker-icon walker-${index + 1}`);
-        group.setAttribute('transform', 'translate(-12, -24) scale(0.8)');
-
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', 'M 15 8 C 15 4, 12 0, 8 0 C 4 0, 1 4, 1 8 C 1 11, 3 14, 6 15 L 4 35 L 0 35 L 0 38 L 6 38 L 8 25 L 10 38 L 16 38 L 16 35 L 12 35 L 10 15 C 13 14, 15 11, 15 8 Z');
-
-        const stick = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        stick.setAttribute('d', 'M 16 10 L 22 38');
-        stick.setAttribute('stroke', index === 0 ? '#4a90a4' : '#a44a6c');
-        stick.setAttribute('stroke-width', '2');
-        stick.setAttribute('stroke-linecap', 'round');
-        stick.setAttribute('fill', 'none');
-
-        group.appendChild(stick);
-        group.appendChild(path);
-
-        return group;
     },
 
     /**
@@ -470,6 +505,47 @@ const MapRenderer = {
     },
 
     /**
+     * Calculate the path length up to a given mile marker
+     * This accounts for the curved path between waypoints
+     */
+    getPathLengthAtMiles(miles) {
+        const waypoints = JourneyRoute.waypoints;
+
+        // Find which segment we're in
+        let prevWaypoint = waypoints[0];
+        let nextWaypoint = waypoints[1];
+        let segmentIndex = 0;
+
+        for (let i = 0; i < waypoints.length - 1; i++) {
+            if (miles >= waypoints[i].miles && miles < waypoints[i + 1].miles) {
+                prevWaypoint = waypoints[i];
+                nextWaypoint = waypoints[i + 1];
+                segmentIndex = i;
+                break;
+            }
+            if (miles >= waypoints[waypoints.length - 1].miles) {
+                // Past the last waypoint
+                return this.pathLength;
+            }
+        }
+
+        // Calculate what fraction of this segment has been traveled
+        const segmentMiles = nextWaypoint.miles - prevWaypoint.miles;
+        const milesIntoSegment = miles - prevWaypoint.miles;
+        const segmentProgress = milesIntoSegment / segmentMiles;
+
+        // Calculate path length for complete segments
+        // Each segment is roughly equal in the SVG path
+        const segmentCount = waypoints.length - 1;
+        const avgSegmentLength = this.pathLength / segmentCount;
+
+        const completedSegmentsLength = segmentIndex * avgSegmentLength;
+        const currentSegmentLength = segmentProgress * avgSegmentLength;
+
+        return completedSegmentsLength + currentSegmentLength;
+    },
+
+    /**
      * Update trail progress
      */
     updateTrail(walkers) {
@@ -481,10 +557,11 @@ const MapRenderer = {
         }
 
         const maxMiles = Math.max(...walkers.map(w => w.miles || JourneyRoute.stepsToMiles(w.steps)));
-        const maxPercent = (maxMiles / JourneyRoute.totalMiles) * 100;
-        const traveledLength = (maxPercent / 100) * this.pathLength;
 
-        console.log('Max miles:', maxMiles, 'Percent:', maxPercent.toFixed(1) + '%');
+        // Calculate path length based on actual miles traveled through waypoints
+        const traveledLength = this.getPathLengthAtMiles(maxMiles);
+
+        console.log('Max miles:', maxMiles, 'Traveled path length:', traveledLength.toFixed(0));
 
         this.journeyPath.style.strokeDashoffset = this.pathLength - traveledLength;
 

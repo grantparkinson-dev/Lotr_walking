@@ -13,6 +13,14 @@ const App = {
     async init() {
         console.log('Walk to Mordor - Initializing...');
 
+        // Restore saved walker selection
+        const savedWalker = SheetsAPI.getSavedWalker();
+        SheetsAPI.setSelectedWalker(savedWalker);
+        this.updateToggleUI(savedWalker);
+
+        // Set up toggle buttons
+        this.setupToggle();
+
         // Initialize map renderer
         MapRenderer.init();
 
@@ -24,6 +32,41 @@ const App = {
 
         // Set up auto-refresh (every 5 minutes)
         setInterval(() => this.loadData(), 5 * 60 * 1000);
+    },
+
+    /**
+     * Set up walker toggle buttons
+     */
+    setupToggle() {
+        const toggleBtns = document.querySelectorAll('.toggle-btn');
+        toggleBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const walkerId = btn.dataset.walker;
+                if (walkerId === SheetsAPI.selectedWalker) return;
+
+                // Update selection
+                SheetsAPI.setSelectedWalker(walkerId);
+                this.updateToggleUI(walkerId);
+
+                // Clear existing walker icons and reload
+                MapRenderer.walkersGroup.innerHTML = '';
+                await this.loadData();
+            });
+        });
+    },
+
+    /**
+     * Update toggle button active state
+     */
+    updateToggleUI(activeWalker) {
+        const toggleBtns = document.querySelectorAll('.toggle-btn');
+        toggleBtns.forEach(btn => {
+            if (btn.dataset.walker === activeWalker) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
     },
 
     /**
