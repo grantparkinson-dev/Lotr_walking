@@ -81,8 +81,8 @@ const Map3D = {
         const aspect = container.clientWidth / container.clientHeight;
         this.camera = new THREE.PerspectiveCamera(60, aspect, 1, 10000);
 
-        // Position camera above and angled down at the map
-        this.camera.position.set(0, 1500, 1500);
+        // Position camera for dramatic view of mountainous terrain
+        this.camera.position.set(-500, 2000, 2000);
         this.camera.lookAt(0, 0, 0);
     },
 
@@ -142,39 +142,39 @@ const Map3D = {
     },
 
     /**
-     * Create the terrain mesh with map texture
+     * Create the terrain mesh with map texture and height displacement
      */
     async createTerrain() {
         return new Promise((resolve) => {
             const textureLoader = new THREE.TextureLoader();
-            textureLoader.load('assets/map.webp', (texture) => {
-                // Create plane geometry for the terrain
+
+            // Load the map texture
+            textureLoader.load('assets/map.webp', (mapTexture) => {
+                // Create high-resolution plane geometry for detailed terrain
+                const segments = 256; // Higher resolution for smoother mountains
                 const geometry = new THREE.PlaneGeometry(
                     this.mapWidth / this.terrainScale,
                     this.mapHeight / this.terrainScale,
-                    128,
-                    128
+                    segments,
+                    segments
                 );
 
-                // Add some subtle height variation for visual interest
-                const positions = geometry.attributes.position;
-                for (let i = 0; i < positions.count; i++) {
-                    const z = Math.random() * 10 - 5; // Random height -5 to 5
-                    positions.setZ(i, z);
-                }
-                geometry.computeVertexNormals();
+                // Generate heightmap from image brightness
+                this.generateHeightmapFromTexture(mapTexture, geometry, segments);
 
                 // Create material with the map texture
                 const material = new THREE.MeshStandardMaterial({
-                    map: texture,
-                    roughness: 0.8,
-                    metalness: 0.2,
-                    side: THREE.DoubleSide
+                    map: mapTexture,
+                    roughness: 0.85,
+                    metalness: 0.15,
+                    side: THREE.DoubleSide,
+                    flatShading: false // Smooth shading for terrain
                 });
 
                 this.terrain = new THREE.Mesh(geometry, material);
                 this.terrain.rotation.x = -Math.PI / 2; // Rotate to be horizontal
                 this.terrain.receiveShadow = true;
+                this.terrain.castShadow = true;
                 this.scene.add(this.terrain);
 
                 resolve();
@@ -183,29 +183,94 @@ const Map3D = {
     },
 
     /**
-     * Create the journey path as a 3D tube
+     * Generate heightmap from texture brightness
+     * Darker areas = lower elevation, lighter = higher elevation
+     */
+    generateHeightmapFromTexture(texture, geometry, segments) {
+        const canvas = document.createElement('canvas');
+        const size = segments + 1;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // Draw texture to canvas to read pixel data
+        const img = texture.image;
+        ctx.drawImage(img, 0, 0, size, size);
+        const imageData = ctx.getImageData(0, 0, size, size);
+        const pixels = imageData.data;
+
+        // Apply height based on brightness
+        const positions = geometry.attributes.position;
+        const maxHeight = 300; // Maximum elevation
+        const baseHeight = -50; // Sea level offset
+
+        for (let i = 0; i < positions.count; i++) {
+            // Get grid position
+            const x = i % size;
+            const y = Math.floor(i / size);
+            const pixelIndex = (y * size + x) * 4;
+
+            // Calculate brightness (average of RGB)
+            const r = pixels[pixelIndex];
+            const g = pixels[pixelIndex + 1];
+            const b = pixels[pixelIndex + 2];
+            const brightness = (r + g + b) / (3 * 255);
+
+            // Apply height with enhanced mountainous features
+            // Use exponential curve to make mountains more dramatic
+            let height = baseHeight + (Math.pow(brightness, 1.5) * maxHeight);
+
+            // Add some procedural noise for natural variation
+            const noiseFreq = 0.05;
+            const noise = this.simplex2D(x * noiseFreq, y * noiseFreq) * 20;
+            height += noise;
+
+            positions.setZ(i, height);
+        }
+
+        // Recompute normals for proper lighting
+        geometry.computeVertexNormals();
+    },
+
+    /**
+     * Simple 2D Perlin-like noise for terrain variation
+     */
+    simplex2D(x, y) {
+        // Simple pseudo-random noise function
+        const sin1 = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+        const sin2 = Math.sin(x * 93.9898 + y * 47.233) * 28365.5453;
+        return (sin1 - Math.floor(sin1) + sin2 - Math.floor(sin2)) / 2 - 0.5;
+    },
+
+    /**
+     * Create the journey path as a 3D tube that follows terrain
      */
     createJourneyPath() {
         const points = JourneyRoute.waypoints.map(wp => {
             // Convert 2D percentage coords to 3D world coords
             const x = ((wp.x - 50) / 100) * (this.mapWidth / this.terrainScale);
             const z = ((wp.y - 50) / 100) * (this.mapHeight / this.terrainScale);
-            return new THREE.Vector3(x, 20, z); // Elevated above terrain
+
+            // Get terrain height at this position
+            const terrainHeight = this.getTerrainHeightAt(x, z);
+
+            // Elevate path above terrain
+            return new THREE.Vector3(x, terrainHeight + 30, z);
         });
 
         // Create smooth curve through points
         const curve = new THREE.CatmullRomCurve3(points);
 
         // Create tube geometry
-        const tubeGeometry = new THREE.TubeGeometry(curve, 200, 8, 8, false);
+        const tubeGeometry = new THREE.TubeGeometry(curve, 200, 10, 8, false);
 
         // Create glowing material for the path
         const pathMaterial = new THREE.MeshStandardMaterial({
             color: 0xffd700,
             emissive: 0xffd700,
-            emissiveIntensity: 0.5,
-            roughness: 0.3,
-            metalness: 0.7
+            emissiveIntensity: 0.6,
+            roughness: 0.2,
+            metalness: 0.8
         });
 
         this.pathLine = new THREE.Mesh(tubeGeometry, pathMaterial);
@@ -217,13 +282,52 @@ const Map3D = {
     },
 
     /**
-     * Create 3D landmark markers
+     * Get terrain height at a specific x, z position
+     */
+    getTerrainHeightAt(x, z) {
+        if (!this.terrain) return 0;
+
+        // Convert world coords to terrain local coords
+        const geometry = this.terrain.geometry;
+        const positions = geometry.attributes.position;
+
+        // Get terrain dimensions
+        const width = this.mapWidth / this.terrainScale;
+        const height = this.mapHeight / this.terrainScale;
+
+        // Convert to UV coordinates (0 to 1)
+        const u = (x / width) + 0.5;
+        const v = (z / height) + 0.5;
+
+        // Clamp to terrain bounds
+        if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
+
+        // Get grid position
+        const segments = 256;
+        const gridX = Math.floor(u * segments);
+        const gridY = Math.floor(v * segments);
+        const vertexIndex = gridY * (segments + 1) + gridX;
+
+        // Get height from geometry
+        if (vertexIndex >= 0 && vertexIndex < positions.count) {
+            return positions.getZ(vertexIndex);
+        }
+
+        return 0;
+    },
+
+    /**
+     * Create 3D landmark markers that follow terrain
      */
     createLandmarks() {
         JourneyRoute.waypoints.forEach((waypoint, index) => {
             // Convert to 3D coordinates
             const x = ((waypoint.x - 50) / 100) * (this.mapWidth / this.terrainScale);
             const z = ((waypoint.y - 50) / 100) * (this.mapHeight / this.terrainScale);
+
+            // Get terrain height at this location
+            const terrainHeight = this.getTerrainHeightAt(x, z);
+            const baseHeight = terrainHeight + 40; // Elevated above terrain
 
             // Create landmark group
             const group = new THREE.Group();
@@ -233,12 +337,12 @@ const Map3D = {
             const sphereMaterial = new THREE.MeshStandardMaterial({
                 color: 0xffd700,
                 emissive: 0xffa500,
-                emissiveIntensity: 0.8,
+                emissiveIntensity: 0.9,
                 roughness: 0.2,
                 metalness: 0.8
             });
             const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-            sphere.position.set(x, 30, z);
+            sphere.position.set(x, baseHeight, z);
             sphere.castShadow = true;
             group.add(sphere);
 
@@ -247,19 +351,31 @@ const Map3D = {
             const ringMaterial = new THREE.MeshBasicMaterial({
                 color: 0xffd700,
                 transparent: true,
-                opacity: 0.3,
+                opacity: 0.4,
                 side: THREE.DoubleSide
             });
             const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-            ring.position.set(x, 30, z);
+            ring.position.set(x, baseHeight, z);
             ring.rotation.x = -Math.PI / 2;
             group.add(ring);
+
+            // Add vertical beam of light
+            const beamGeometry = new THREE.CylinderGeometry(2, 2, terrainHeight + 40, 8);
+            const beamMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffd700,
+                transparent: true,
+                opacity: 0.2
+            });
+            const beam = new THREE.Mesh(beamGeometry, beamMaterial);
+            beam.position.set(x, baseHeight / 2, z);
+            group.add(beam);
 
             // Add pulsing animation data
             group.userData = {
                 waypoint: waypoint,
                 pulsPhase: Math.random() * Math.PI * 2,
-                baseY: 30
+                baseY: baseHeight,
+                terrainHeight: terrainHeight
             };
 
             this.landmarks.push(group);
@@ -476,7 +592,7 @@ const Map3D = {
     },
 
     /**
-     * Update walker positions
+     * Update walker positions on 3D terrain
      */
     updateWalkers(walkers) {
         // Clear existing walkers
@@ -487,26 +603,45 @@ const Map3D = {
             const miles = walker.miles || JourneyRoute.stepsToMiles(walker.steps);
             const percent = miles / JourneyRoute.totalMiles;
 
-            // Get position along path curve
+            // Get position along path curve (already terrain-aware from createJourneyPath)
             const point = this.pathCurve.getPointAt(Math.min(percent, 1));
 
-            // Create walker mesh (simple glowing sphere for now)
-            const geometry = new THREE.SphereGeometry(20, 16, 16);
+            // Create walker mesh group
+            const walkerGroup = new THREE.Group();
+
+            // Glowing sphere for walker
+            const geometry = new THREE.SphereGeometry(25, 16, 16);
+            const color = index === 0 ? 0x00ff88 : 0xff4488;
             const material = new THREE.MeshStandardMaterial({
-                color: index === 0 ? 0x00ff00 : 0x0000ff,
-                emissive: index === 0 ? 0x00ff00 : 0x0000ff,
-                emissiveIntensity: 0.8,
-                roughness: 0.3,
-                metalness: 0.7
+                color: color,
+                emissive: color,
+                emissiveIntensity: 1.0,
+                roughness: 0.2,
+                metalness: 0.8
             });
 
             const walkerMesh = new THREE.Mesh(geometry, material);
-            walkerMesh.position.copy(point);
-            walkerMesh.position.y += 40; // Elevate above path
             walkerMesh.castShadow = true;
+            walkerGroup.add(walkerMesh);
 
-            this.walkers.push(walkerMesh);
-            this.scene.add(walkerMesh);
+            // Add glow ring around walker
+            const ringGeometry = new THREE.RingGeometry(30, 35, 32);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.5,
+                side: THREE.DoubleSide
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.rotation.x = -Math.PI / 2;
+            walkerGroup.add(ring);
+
+            // Position group on path
+            walkerGroup.position.copy(point);
+            walkerGroup.position.y += 50; // Elevate above path
+
+            this.walkers.push(walkerGroup);
+            this.scene.add(walkerGroup);
         });
     },
 
