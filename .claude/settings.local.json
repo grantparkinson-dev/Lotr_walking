@@ -6,7 +6,10 @@
       "WebFetch(domain:docs.google.com)",
       "WebFetch(domain:doc-0k-bs-sheets.googleusercontent.com)",
       "WebFetch(domain:doc-0o-bs-sheets.googleusercontent.com)",
-      "Bash(node --check:*)"
+      "Bash(node --check:*)",
+      "Bash(lsof:*)",
+      "Bash(netstat:*)",
+      "Bash(ss:*)"
     ]
   }
 }
