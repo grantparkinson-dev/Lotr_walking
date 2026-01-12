@@ -203,8 +203,11 @@ const MapRenderer = {
             }
         });
 
-        // Touch support
+        // Touch support with pinch zoom
         let lastTouchDistance = 0;
+        let touchCenterX = 0;
+        let touchCenterY = 0;
+
         this.viewport.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 this.isDragging = true;
@@ -213,27 +216,54 @@ const MapRenderer = {
                 this.lastPanX = this.panX;
                 this.lastPanY = this.panY;
             } else if (e.touches.length === 2) {
+                // Prevent default browser zoom
+                e.preventDefault();
+                this.isDragging = false;
                 lastTouchDistance = this.getTouchDistance(e.touches);
+
+                // Calculate center point between two touches
+                const rect = this.viewport.getBoundingClientRect();
+                touchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+                touchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
             }
-        }, { passive: true });
+        }, { passive: false });
 
         this.viewport.addEventListener('touchmove', (e) => {
             if (e.touches.length === 1 && this.isDragging) {
+                e.preventDefault();
                 const dx = e.touches[0].clientX - this.dragStartX;
                 const dy = e.touches[0].clientY - this.dragStartY;
                 this.panX = this.lastPanX + dx;
                 this.panY = this.lastPanY + dy;
                 this.applyTransform();
             } else if (e.touches.length === 2) {
+                e.preventDefault();
                 const distance = this.getTouchDistance(e.touches);
                 const delta = distance / lastTouchDistance;
-                lastTouchDistance = distance;
-                this.zoomBy(delta);
-            }
-        }, { passive: true });
 
-        this.viewport.addEventListener('touchend', () => {
-            this.isDragging = false;
+                // Zoom at the center point between touches
+                this.zoomAt(touchCenterX, touchCenterY, delta);
+
+                lastTouchDistance = distance;
+
+                // Update center point for smooth zooming
+                const rect = this.viewport.getBoundingClientRect();
+                touchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+                touchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+            }
+        }, { passive: false });
+
+        this.viewport.addEventListener('touchend', (e) => {
+            if (e.touches.length === 0) {
+                this.isDragging = false;
+            } else if (e.touches.length === 1) {
+                // Switching from pinch to pan
+                this.isDragging = true;
+                this.dragStartX = e.touches[0].clientX;
+                this.dragStartY = e.touches[0].clientY;
+                this.lastPanX = this.panX;
+                this.lastPanY = this.panY;
+            }
         });
 
         // Hide hint after first interaction
