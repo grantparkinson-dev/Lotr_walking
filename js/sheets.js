@@ -4,13 +4,19 @@
  */
 
 const SheetsAPI = {
-    // Your Google Sheet ID
-    SHEET_ID: '1_zWBYfuWloRJn3K2T1hkWDjxS8sDm7I5',
-
-    // Configuration for each walker's sheet tab
+    // Configuration for each walker's sheet
+    // Each walker can have their own spreadsheet (sheetId) and tab (gid)
     walkerConfigs: {
-        joely: { name: 'Joely', gid: '72948048' },
-        kylie: { name: 'Kylie', gid: '0' },  // Update with Kylie's actual gid
+        joely: {
+            name: 'Joely',
+            sheetId: '1_zWBYfuWloRJn3K2T1hkWDjxS8sDm7I5',
+            gid: '72948048'
+        },
+        kylie: {
+            name: 'Kylie',
+            sheetId: '1Fu8vpsg-EvSOX93VcfEPAAXSiq9AWsEoz4Aco8363OI',
+            gid: '0'
+        },
     },
 
     // Currently selected walker (default to joely)
@@ -46,7 +52,7 @@ const SheetsAPI = {
         if (!walker) return results;
 
         try {
-            const data = await this.fetchSheet(walker.gid);
+            const data = await this.fetchSheet(walker.sheetId, walker.gid);
             results.push({
                 name: walker.name,
                 miles: data.totalMiles,
@@ -61,12 +67,20 @@ const SheetsAPI = {
 
     /**
      * Fetches and parses a single sheet tab
+     * @param {string} sheetId - The Google Sheets ID
      * @param {string} gid - The sheet tab ID
      * @returns {Promise<{totalMiles: number}>}
      */
-    async fetchSheet(gid) {
-        const url = `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&gid=${gid}`;
-        const response = await fetch(url);
+    async fetchSheet(sheetId, gid) {
+        // Try published web format first (File -> Publish to web)
+        let url = `https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv&gid=${gid}`;
+        let response = await fetch(url);
+
+        // If that fails, try export format (Share -> Anyone with link)
+        if (!response.ok) {
+            url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+            response = await fetch(url);
+        }
 
         if (!response.ok) {
             throw new Error(`Failed to fetch sheet: ${response.status}`);
@@ -154,9 +168,11 @@ const SheetsAPI = {
      */
     isConfigured() {
         const walker = this.walkerConfigs[this.selectedWalker];
-        return this.SHEET_ID !== 'YOUR_SHEET_ID_HERE' &&
-               this.SHEET_ID.length > 10 &&
-               walker && walker.gid && walker.gid !== '0';
+        return walker &&
+               walker.sheetId &&
+               walker.sheetId !== 'YOUR_SHEET_ID_HERE' &&
+               walker.sheetId.length > 10 &&
+               walker.gid !== undefined;
     }
 };
 
@@ -166,7 +182,7 @@ const DemoData = {
         const selectedWalker = SheetsAPI.selectedWalker;
         if (selectedWalker === 'kylie') {
             return [
-                { name: 'Kylie', miles: 650.0, steps: 1300000 }
+                { name: 'Kylie', miles: 571.3, steps: 1142600 }
             ];
         }
         return [
