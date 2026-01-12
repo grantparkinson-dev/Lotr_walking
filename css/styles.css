@@ -640,6 +640,19 @@ body {
     color: var(--color-ink);
 }
 
+.stat-row-highlight {
+    background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), rgba(255, 140, 0, 0.15));
+    padding: 0.4rem 0.6rem;
+    margin: 0.25rem -0.6rem;
+    border-radius: 4px;
+    border-left: 3px solid var(--color-gold-dark);
+}
+
+.stat-row-highlight .value {
+    color: var(--color-gold-dark);
+    font-weight: 700;
+}
+
 .progress-bar-container {
     margin-top: 0.75rem;
 }

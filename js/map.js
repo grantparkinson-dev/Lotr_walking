@@ -564,7 +564,7 @@ const MapRenderer = {
     },
 
     /**
-     * Update walker positions
+     * Update walker positions - uses the actual SVG path to sync with trail progress
      */
     updateWalkerPositions(walkers) {
         walkers.forEach((walker, index) => {
@@ -572,13 +572,21 @@ const MapRenderer = {
             if (!group) return;
 
             const miles = walker.miles || JourneyRoute.stepsToMiles(walker.steps);
-            const percent = (miles / JourneyRoute.totalMiles) * 100;
-            const position = JourneyRoute.getPositionAtPercent(percent);
 
-            const x = (position.x / 100) * this.imageWidth;
-            const y = (position.y / 100) * this.imageHeight;
-
-            group.style.transform = `translate(${x}px, ${y}px)`;
+            // Use the actual path to get the exact position at the traveled distance
+            // This ensures the walker is always at the end of the visible path
+            if (this.journeyPath && this.pathLength) {
+                const traveledLength = this.getPathLengthAtMiles(miles);
+                const point = this.journeyPath.getPointAtLength(traveledLength);
+                group.style.transform = `translate(${point.x}px, ${point.y}px)`;
+            } else {
+                // Fallback to interpolation if path not ready
+                const percent = (miles / JourneyRoute.totalMiles) * 100;
+                const position = JourneyRoute.getPositionAtPercent(percent);
+                const x = (position.x / 100) * this.imageWidth;
+                const y = (position.y / 100) * this.imageHeight;
+                group.style.transform = `translate(${x}px, ${y}px)`;
+            }
         });
     },
 

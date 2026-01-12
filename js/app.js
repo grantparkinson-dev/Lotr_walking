@@ -1,3 +1,5 @@
+console.log('[app.js] Script loaded');
+
 /**
  * Walk to Mordor - Main Application
  * Ties together all modules and manages UI state
@@ -69,25 +71,31 @@ const App = {
     },
 
     /**
-     * Load data from Google Sheets or demo data
+     * Load data from Google Sheets (with localStorage cache fallback)
      */
     async loadData() {
+        console.log('[App] Loading data...');
         try {
             if (SheetsAPI.isConfigured()) {
                 this.walkers = await SheetsAPI.fetchProgress();
+                console.log('[App] Walkers data:', this.walkers);
             } else {
-                this.walkers = DemoData.getWalkers();
+                console.warn('[App] SheetsAPI not configured');
+            }
+
+            if (!this.walkers || this.walkers.length === 0) {
+                console.warn('[App] No walker data available');
             }
 
             this.updateUI();
-            MapRenderer.update(this.walkers);
+            if (this.walkers && this.walkers.length > 0) {
+                MapRenderer.update(this.walkers);
+            }
             this.updateLastUpdated();
 
         } catch (error) {
-            // Fall back to demo data on error
-            this.walkers = DemoData.getWalkers();
+            console.error('[App] Error loading data:', error);
             this.updateUI();
-            MapRenderer.update(this.walkers);
         }
     },
 
@@ -144,7 +152,16 @@ const App = {
                         <span class="label">Next Stop</span>
                         <span class="value">${nextLocation.name}</span>
                     </div>
-                    ` : ''}
+                    <div class="stat-row stat-row-highlight">
+                        <span class="label">Distance</span>
+                        <span class="value">${(nextLocation.miles - miles).toFixed(1)} miles to go</span>
+                    </div>
+                    ` : `
+                    <div class="stat-row stat-row-highlight">
+                        <span class="label">Status</span>
+                        <span class="value">Journey Complete!</span>
+                    </div>
+                    `}
                 </div>
                 <div class="progress-bar-container">
                     <div class="progress-bar">
@@ -164,8 +181,11 @@ const App = {
     updateCurrentLocation() {
         const container = document.getElementById('currentLocation');
 
-        if (this.walkers.length === 0) {
-            container.innerHTML = '<p>No travelers found</p>';
+        if (!this.walkers || this.walkers.length === 0) {
+            container.innerHTML = `
+                <h4>Loading Data...</h4>
+                <p style="font-size: 0.85rem;">Check browser console for details</p>
+            `;
             return;
         }
 
