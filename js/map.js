@@ -109,9 +109,6 @@ const MapRenderer = {
         this.imageWidth = this.mapImage.naturalWidth;
         this.imageHeight = this.mapImage.naturalHeight;
 
-        console.log('=== Setting up Map ===');
-        console.log('Map dimensions:', this.imageWidth, 'x', this.imageHeight);
-
         // Set up SVG
         this.svg.setAttribute('viewBox', `0 0 ${this.imageWidth} ${this.imageHeight}`);
         this.svg.setAttribute('width', this.imageWidth);
@@ -126,8 +123,6 @@ const MapRenderer = {
 
         // Center on journey with nice default zoom
         setTimeout(() => this.centerOnJourney(), 100);
-
-        console.log('Map setup complete');
     },
 
     /**
@@ -358,8 +353,6 @@ const MapRenderer = {
         this.pathLength = this.journeyPath.getTotalLength();
         this.journeyPath.style.strokeDasharray = this.pathLength;
         this.journeyPath.style.strokeDashoffset = this.pathLength;
-
-        console.log('Path length:', this.pathLength);
     },
 
     /**
@@ -549,19 +542,10 @@ const MapRenderer = {
      * Update trail progress
      */
     updateTrail(walkers) {
-        console.log('=== Updating Trail ===');
-
-        if (!this.journeyPath || !this.pathLength) {
-            console.log('Trail update skipped');
-            return;
-        }
+        if (!this.journeyPath || !this.pathLength) return;
 
         const maxMiles = Math.max(...walkers.map(w => w.miles || JourneyRoute.stepsToMiles(w.steps)));
-
-        // Calculate path length based on actual miles traveled through waypoints
         const traveledLength = this.getPathLengthAtMiles(maxMiles);
-
-        console.log('Max miles:', maxMiles, 'Traveled path length:', traveledLength.toFixed(0));
 
         this.journeyPath.style.strokeDashoffset = this.pathLength - traveledLength;
 

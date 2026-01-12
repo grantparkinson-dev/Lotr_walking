@@ -11,8 +11,6 @@ const App = {
      * Initialize the application
      */
     async init() {
-        console.log('Walk to Mordor - Initializing...');
-
         // Restore saved walker selection
         const savedWalker = SheetsAPI.getSavedWalker();
         SheetsAPI.setSelectedWalker(savedWalker);
@@ -74,27 +72,17 @@ const App = {
      */
     async loadData() {
         try {
-            console.log('=== Loading Data ===');
-            console.log('Sheet ID:', SheetsAPI.SHEET_ID);
-            console.log('Is configured:', SheetsAPI.isConfigured());
-
             if (SheetsAPI.isConfigured()) {
-                console.log('Fetching from Google Sheets...');
                 this.walkers = await SheetsAPI.fetchProgress();
-                console.log('Loaded data from Google Sheets:', this.walkers);
             } else {
-                console.log('Google Sheets not configured, using demo data');
                 this.walkers = DemoData.getWalkers();
             }
 
-            console.log('Walkers data:', JSON.stringify(this.walkers, null, 2));
             this.updateUI();
             MapRenderer.update(this.walkers);
             this.updateLastUpdated();
 
         } catch (error) {
-            console.error('Failed to load data:', error);
-            console.error('Error details:', error.message, error.stack);
             // Fall back to demo data on error
             this.walkers = DemoData.getWalkers();
             this.updateUI();
@@ -129,8 +117,10 @@ const App = {
             card.innerHTML = `
                 <div class="walker-card-header">
                     <div class="walker-avatar walker-${index + 1}">
-                        <svg viewBox="0 0 30 55">
-                            <path d="M 25 10 C 25 4, 20 0, 15 0 C 10 0, 5 4, 5 10 C 5 14, 8 18, 12 20 L 8 50 L 2 50 L 2 55 L 12 55 L 15 35 L 18 55 L 28 55 L 28 50 L 22 50 L 18 20 C 22 18, 25 14, 25 10 Z" fill="currentColor"/>
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12 2C9 7 4 9 4 14c0 4 3.5 8 8 8s8-4 8-8c0-5-5-7-8-12z" fill="currentColor" opacity="0.3"/>
+                            <path d="M12 3c-2.5 4.5-6.5 6-6.5 10.5c0 3.5 3 6.5 6.5 6.5s6.5-3 6.5-6.5c0-4.5-4-6-6.5-10.5z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M12 7v11M9 12c1.5 1 4.5 1 6 0M9.5 15.5c1.2.8 3.8.8 5 0" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
                         </svg>
                     </div>
                     <span class="walker-name">${this.escapeHtml(walker.name)}</span>

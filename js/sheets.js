@@ -43,10 +43,7 @@ const SheetsAPI = {
         const results = [];
         const walker = this.walkerConfigs[this.selectedWalker];
 
-        if (!walker) {
-            console.error('No walker selected');
-            return results;
-        }
+        if (!walker) return results;
 
         try {
             const data = await this.fetchSheet(walker.gid);
@@ -56,7 +53,7 @@ const SheetsAPI = {
                 steps: Math.round(data.totalMiles * 2000) // Convert miles to steps
             });
         } catch (error) {
-            console.error(`Failed to fetch data for ${walker.name}:`, error);
+            // Silently fail - will fall back to demo data
         }
 
         return results;
@@ -69,21 +66,14 @@ const SheetsAPI = {
      */
     async fetchSheet(gid) {
         const url = `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/export?format=csv&gid=${gid}`;
-        console.log('Fetching URL:', url);
-
         const response = await fetch(url);
-        console.log('Response status:', response.status);
 
         if (!response.ok) {
             throw new Error(`Failed to fetch sheet: ${response.status}`);
         }
 
         const csvText = await response.text();
-        console.log('CSV text (first 1000 chars):', csvText.substring(0, 1000));
-
-        const result = this.parseWalkToMordorCSV(csvText);
-        console.log('Parsed result:', result);
-        return result;
+        return this.parseWalkToMordorCSV(csvText);
     },
 
     /**
@@ -95,18 +85,13 @@ const SheetsAPI = {
      */
     parseWalkToMordorCSV(csvText) {
         const lines = csvText.trim().split('\n');
-        console.log('Total lines:', lines.length);
 
         // Find the header row that contains "Total" as a column header
-        // This row typically comes after "WALK TO MORDOR CHALLENGE"
         let totalColumnIndex = -1;
         let dataStartRow = -1;
 
         for (let i = 0; i < lines.length; i++) {
             const columns = this.parseCSVLine(lines[i]);
-
-            // Look for a row that has "Total" as a header (usually after Date, Challenge, Steps, Miles)
-            // The header row typically has: Date, Challenge, Steps, Miles, Total
             const totalIdx = columns.findIndex((col, idx) =>
                 col.toLowerCase().trim() === 'total' && idx >= 3
             );
@@ -114,18 +99,13 @@ const SheetsAPI = {
             if (totalIdx !== -1) {
                 totalColumnIndex = totalIdx;
                 dataStartRow = i + 1;
-                console.log(`Found "Total" column at index ${totalIdx} on row ${i}`);
-                console.log('Header row:', columns);
                 break;
             }
         }
 
-        if (totalColumnIndex === -1) {
-            console.error('Could not find Total column header');
-            return { totalMiles: 0 };
-        }
+        if (totalColumnIndex === -1) return { totalMiles: 0 };
 
-        // Now find the last row with a valid total value
+        // Find the last row with a valid total value
         let lastTotal = 0;
 
         for (let i = dataStartRow; i < lines.length; i++) {
@@ -138,7 +118,6 @@ const SheetsAPI = {
             }
         }
 
-        console.log('Last total found:', lastTotal);
         return { totalMiles: lastTotal };
     },
 
