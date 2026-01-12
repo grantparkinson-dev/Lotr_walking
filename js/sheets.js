@@ -72,8 +72,15 @@ const SheetsAPI = {
      * @returns {Promise<{totalMiles: number}>}
      */
     async fetchSheet(sheetId, gid) {
-        const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-        const response = await fetch(url);
+        // Try published web format first (File -> Publish to web)
+        let url = `https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv&gid=${gid}`;
+        let response = await fetch(url);
+
+        // If that fails, try export format (Share -> Anyone with link)
+        if (!response.ok) {
+            url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+            response = await fetch(url);
+        }
 
         if (!response.ok) {
             throw new Error(`Failed to fetch sheet: ${response.status}`);
