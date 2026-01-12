@@ -6,6 +6,8 @@
 const App = {
     walkers: [],
     isLoading: true,
+    is3DMode: false,
+    map3dInitialized: false,
 
     /**
      * Initialize the application
@@ -18,6 +20,8 @@ const App = {
 
         // Set up toggle buttons
         this.setupToggle();
+        this.setup3DToggle();
+        this.setupWeatherControls();
 
         // Initialize map renderer
         MapRenderer.init();
@@ -69,6 +73,63 @@ const App = {
     },
 
     /**
+     * Set up 3D mode toggle
+     */
+    setup3DToggle() {
+        const toggle3DBtn = document.getElementById('toggle3D');
+        if (!toggle3DBtn) return;
+
+        toggle3DBtn.addEventListener('click', async () => {
+            this.is3DMode = !this.is3DMode;
+
+            const map2D = document.getElementById('mapViewport');
+            const map3D = document.getElementById('map3dContainer');
+
+            if (this.is3DMode) {
+                // Switch to 3D
+                map2D.style.display = 'none';
+                map3D.style.display = 'block';
+                toggle3DBtn.classList.add('active');
+
+                // Initialize 3D map if not already done
+                if (!this.map3dInitialized && typeof Map3D !== 'undefined') {
+                    await Map3D.init();
+                    Map3D.update(this.walkers);
+                    this.map3dInitialized = true;
+                } else if (typeof Map3D !== 'undefined') {
+                    Map3D.update(this.walkers);
+                }
+            } else {
+                // Switch to 2D
+                map2D.style.display = 'block';
+                map3D.style.display = 'none';
+                toggle3DBtn.classList.remove('active');
+            }
+        });
+    },
+
+    /**
+     * Set up weather controls
+     */
+    setupWeatherControls() {
+        const weatherBtns = document.querySelectorAll('.weather-btn');
+        weatherBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const weather = btn.dataset.weather;
+
+                // Update active state
+                weatherBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Apply weather to 3D map
+                if (this.is3DMode && this.map3dInitialized && typeof Map3D !== 'undefined') {
+                    Map3D.setWeather(weather);
+                }
+            });
+        });
+    },
+
+    /**
      * Load data from Google Sheets or demo data
      */
     async loadData() {
@@ -81,6 +142,12 @@ const App = {
 
             this.updateUI();
             MapRenderer.update(this.walkers);
+
+            // Update 3D map if initialized
+            if (this.is3DMode && this.map3dInitialized && typeof Map3D !== 'undefined') {
+                Map3D.update(this.walkers);
+            }
+
             this.updateLastUpdated();
 
         } catch (error) {
@@ -88,6 +155,10 @@ const App = {
             this.walkers = DemoData.getWalkers();
             this.updateUI();
             MapRenderer.update(this.walkers);
+
+            if (this.is3DMode && this.map3dInitialized && typeof Map3D !== 'undefined') {
+                Map3D.update(this.walkers);
+            }
         }
     },
 
