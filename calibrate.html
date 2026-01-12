@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Calibration Tool</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .header {
+            background: #2a2a2a;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #444;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .header h1 {
+            font-size: 1.1rem;
+        }
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .zoom-controls button {
+            background: #4a90a4;
+            color: white;
+            border: none;
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .zoom-controls button:hover {
+            background: #5aa0b4;
+        }
+        .zoom-controls span {
+            min-width: 60px;
+            text-align: center;
+            font-family: monospace;
+        }
+        .container {
+            display: flex;
+            height: calc(100vh - 52px);
+        }
+        .map-area {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+            cursor: crosshair;
+            background: #111;
+        }
+        .map-wrapper {
+            position: relative;
+            transform-origin: 0 0;
+            display: inline-block;
+        }
+        .map-wrapper img {
+            display: block;
+            max-width: none;
+        }
+        .sidebar {
+            width: 350px;
+            background: #2a2a2a;
+            padding: 1rem;
+            overflow-y: auto;
+            border-left: 1px solid #444;
+            flex-shrink: 0;
+        }
+        .sidebar h2 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: #ffd700;
+        }
+        .waypoint-item {
+            background: #333;
+            padding: 0.6rem;
+            margin-bottom: 0.4rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .waypoint-item.active {
+            border: 2px solid #ffd700;
+            background: #3d3520;
+        }
+        .waypoint-item.done {
+            border-left: 3px solid #4caf50;
+        }
+        .waypoint-item .name {
+            font-weight: bold;
+            margin-bottom: 0.2rem;
+        }
+        .waypoint-item .coords {
+            color: #aaa;
+            font-family: monospace;
+            font-size: 0.75rem;
+        }
+        .waypoint-item button {
+            margin-top: 0.4rem;
+            background: #4a90a4;
+            color: white;
+            border: none;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .waypoint-item button:hover {
+            background: #5aa0b4;
+        }
+        .marker {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+        }
+        .marker-dot {
+            width: 16px;
+            height: 16px;
+            background: #ff6b6b;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(0,0,0,0.5);
+        }
+        .marker.active .marker-dot {
+            background: #ffd700;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+        }
+        .marker-label {
+            position: absolute;
+            left: 20px;
+            top: -8px;
+            font-size: 11px;
+            white-space: nowrap;
+            background: rgba(0,0,0,0.8);
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #fff;
+        }
+        .output-area {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #444;
+        }
+        .output-area h3 {
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+        #coordsOutput {
+            background: #1a1a1a;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.7rem;
+            white-space: pre;
+            overflow-x: auto;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        .copy-btn {
+            margin-top: 0.5rem;
+            background: #4a90a4;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 0.85rem;
+        }
+        .copy-btn:hover {
+            background: #5aa0b4;
+        }
+        .instructions {
+            background: #333;
+            padding: 0.6rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+        .instructions ol {
+            margin-left: 1.25rem;
+        }
+        .mouse-coords {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Map Calibration Tool</h1>
+        <div class="zoom-controls">
+            <button onclick="zoomOut()">-</button>
+            <span id="zoomLevel">100%</span>
+            <button onclick="zoomIn()">+</button>
+            <button onclick="fitToScreen()">Fit</button>
+            <button onclick="resetZoom()">100%</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="map-area" id="mapArea">
+            <div class="map-wrapper" id="mapWrapper">
+                <img src="assets/map.png" id="mapImage" alt="Middle-earth Map">
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="instructions">
+                <ol>
+                    <li>Use zoom controls or scroll wheel to navigate</li>
+                    <li>Click "Set" next to a waypoint</li>
+                    <li>Click on the map at that location</li>
+                    <li>Repeat for all waypoints</li>
+                    <li>Copy output to route.js</li>
+                </ol>
+            </div>
+
+            <h2>Waypoints</h2>
+            <div id="waypointsList"></div>
+
+            <div class="output-area">
+                <h3>Updated Coordinates</h3>
+                <div id="coordsOutput"></div>
+                <button class="copy-btn" onclick="copyOutput()">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="mouse-coords" id="mouseCoords">x: --, y: --</div>
+
+    <script src="data/route.js"></script>
+    <script>
+        let activeWaypoint = null;
+        let zoom = 1;
+        let imageWidth = 0;
+        let imageHeight = 0;
+
+        const mapArea = document.getElementById('mapArea');
+        const mapWrapper = document.getElementById('mapWrapper');
+        const mapImage = document.getElementById('mapImage');
+        const waypointsList = document.getElementById('waypointsList');
+        const coordsOutput = document.getElementById('coordsOutput');
+        const zoomLevelDisplay = document.getElementById('zoomLevel');
+        const mouseCoords = document.getElementById('mouseCoords');
+
+        // Deep copy waypoints for editing
+        let editedWaypoints = JSON.parse(JSON.stringify(JourneyRoute.waypoints));
+
+        // Track which waypoints have been set
+        let setWaypoints = new Set();
+
+        function init() {
+            imageWidth = mapImage.naturalWidth;
+            imageHeight = mapImage.naturalHeight;
+            fitToScreen();
+            renderWaypoints();
+            updateMarkers();
+        }
+
+        function setZoom(newZoom) {
+            zoom = Math.max(0.05, Math.min(2, newZoom));
+            mapWrapper.style.transform = `scale(${zoom})`;
+            zoomLevelDisplay.textContent = Math.round(zoom * 100) + '%';
+            updateMarkers();
+        }
+
+        function zoomIn() {
+            setZoom(zoom * 1.25);
+        }
+
+        function zoomOut() {
+            setZoom(zoom / 1.25);
+        }
+
+        function fitToScreen() {
+            const areaWidth = mapArea.clientWidth;
+            const areaHeight = mapArea.clientHeight;
+            const scaleX = areaWidth / imageWidth;
+            const scaleY = areaHeight / imageHeight;
+            setZoom(Math.min(scaleX, scaleY) * 0.95);
+        }
+
+        function resetZoom() {
+            setZoom(1);
+        }
+
+        // Mouse wheel zoom
+        mapArea.addEventListener('wheel', (e) => {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                setZoom(zoom * delta);
+            }
+        }, { passive: false });
+
+        // Track mouse position
+        mapArea.addEventListener('mousemove', (e) => {
+            const coords = getImageCoordinates(e);
+            if (coords) {
+                mouseCoords.textContent = `x: ${coords.xPercent.toFixed(2)}%, y: ${coords.yPercent.toFixed(2)}%`;
+            }
+        });
+
+        function getImageCoordinates(e) {
+            // Get the wrapper's position (it has the transform applied)
+            const wrapperRect = mapWrapper.getBoundingClientRect();
+
+            // Click position relative to the wrapper's top-left
+            const clickX = e.clientX - wrapperRect.left;
+            const clickY = e.clientY - wrapperRect.top;
+
+            // Convert from zoomed (visual) coordinates to actual image coordinates
+            const imageX = clickX / zoom;
+            const imageY = clickY / zoom;
+
+            // Check if click is within image bounds
+            if (imageX < 0 || imageX > imageWidth || imageY < 0 || imageY > imageHeight) {
+                return null;
+            }
+
+            // Convert to percentage
+            const xPercent = (imageX / imageWidth) * 100;
+            const yPercent = (imageY / imageHeight) * 100;
+
+            return { x: imageX, y: imageY, xPercent, yPercent };
+        }
+
+        function renderWaypoints() {
+            waypointsList.innerHTML = '';
+            editedWaypoints.forEach((wp, index) => {
+                const isActive = activeWaypoint === index;
+                const isDone = setWaypoints.has(index);
+
+                const div = document.createElement('div');
+                div.className = 'waypoint-item' + (isActive ? ' active' : '') + (isDone ? ' done' : '');
+                div.innerHTML = `
+                    <div class="name">${index + 1}. ${wp.name}</div>
+                    <div class="coords">x: ${wp.x.toFixed(2)}%, y: ${wp.y.toFixed(2)}%</div>
+                    <button onclick="setActiveWaypoint(${index})">Set</button>
+                `;
+                waypointsList.appendChild(div);
+            });
+            updateOutput();
+        }
+
+        function setActiveWaypoint(index) {
+            activeWaypoint = index;
+            renderWaypoints();
+            updateMarkers();
+        }
+
+        function updateMarkers() {
+            // Remove existing markers
+            document.querySelectorAll('.marker').forEach(m => m.remove());
+
+            editedWaypoints.forEach((wp, index) => {
+                const marker = document.createElement('div');
+                marker.className = 'marker' + (activeWaypoint === index ? ' active' : '');
+
+                // Position marker based on percentage coordinates
+                // Don't multiply by zoom - the wrapper's CSS transform handles that
+                const left = (wp.x / 100) * imageWidth;
+                const top = (wp.y / 100) * imageHeight;
+
+                marker.style.left = left + 'px';
+                marker.style.top = top + 'px';
+
+                marker.innerHTML = `
+                    <div class="marker-dot"></div>
+                    <span class="marker-label">${wp.name}</span>
+                `;
+
+                mapWrapper.appendChild(marker);
+            });
+        }
+
+        mapArea.addEventListener('click', (e) => {
+            if (activeWaypoint === null) return;
+
+            const coords = getImageCoordinates(e);
+            if (!coords) return;
+
+            // Update waypoint
+            editedWaypoints[activeWaypoint].x = coords.xPercent;
+            editedWaypoints[activeWaypoint].y = coords.yPercent;
+            setWaypoints.add(activeWaypoint);
+
+            // Move to next waypoint
+            if (activeWaypoint < editedWaypoints.length - 1) {
+                activeWaypoint++;
+            } else {
+                activeWaypoint = null;
+            }
+
+            renderWaypoints();
+            updateMarkers();
+        });
+
+        function updateOutput() {
+            const lines = editedWaypoints.map(wp =>
+                `    {\n        name: '${wp.name}',\n        x: ${wp.x.toFixed(2)},\n        y: ${wp.y.toFixed(2)},\n        miles: ${wp.miles},\n        description: '${wp.description.replace(/'/g, "\\'")}'\n    }`
+            );
+            coordsOutput.textContent = 'waypoints: [\n' + lines.join(',\n') + '\n]';
+        }
+
+        function copyOutput() {
+            navigator.clipboard.writeText(coordsOutput.textContent).then(() => {
+                alert('Copied! Replace the waypoints array in data/route.js with this.');
+            });
+        }
+
+        // Initialize when image loads
+        if (mapImage.complete) {
+            init();
+        } else {
+            mapImage.addEventListener('load', init);
+        }
+    </script>
+</body>
+</html>

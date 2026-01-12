@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(identify:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "WebFetch(domain:docs.google.com)"
     ]
   }
 }

@@ -31,7 +31,12 @@ const App = {
      */
     async loadData() {
         try {
+            console.log('=== Loading Data ===');
+            console.log('Sheet ID:', SheetsAPI.SHEET_ID);
+            console.log('Is configured:', SheetsAPI.isConfigured());
+
             if (SheetsAPI.isConfigured()) {
+                console.log('Fetching from Google Sheets...');
                 this.walkers = await SheetsAPI.fetchProgress();
                 console.log('Loaded data from Google Sheets:', this.walkers);
             } else {
@@ -39,12 +44,14 @@ const App = {
                 this.walkers = DemoData.getWalkers();
             }
 
+            console.log('Walkers data:', JSON.stringify(this.walkers, null, 2));
             this.updateUI();
             MapRenderer.update(this.walkers);
             this.updateLastUpdated();
 
         } catch (error) {
             console.error('Failed to load data:', error);
+            console.error('Error details:', error.message, error.stack);
             // Fall back to demo data on error
             this.walkers = DemoData.getWalkers();
             this.updateUI();
@@ -68,8 +75,9 @@ const App = {
         container.innerHTML = '';
 
         this.walkers.forEach((walker, index) => {
-            const miles = JourneyRoute.stepsToMiles(walker.steps);
-            const percent = JourneyRoute.getProgressPercent(walker.steps);
+            // Use miles directly if available, otherwise calculate from steps
+            const miles = walker.miles || JourneyRoute.stepsToMiles(walker.steps);
+            const percent = (miles / JourneyRoute.totalMiles) * 100;
             const currentLocation = JourneyRoute.getCurrentWaypoint(miles);
             const nextLocation = JourneyRoute.getNextWaypoint(miles);
 
@@ -128,11 +136,13 @@ const App = {
         }
 
         // Find the walker who is furthest along
-        const furthestWalker = this.walkers.reduce((max, walker) =>
-            walker.steps > max.steps ? walker : max
-        );
+        const furthestWalker = this.walkers.reduce((max, walker) => {
+            const walkerMiles = walker.miles || JourneyRoute.stepsToMiles(walker.steps);
+            const maxMiles = max.miles || JourneyRoute.stepsToMiles(max.steps);
+            return walkerMiles > maxMiles ? walker : max;
+        });
 
-        const miles = JourneyRoute.stepsToMiles(furthestWalker.steps);
+        const miles = furthestWalker.miles || JourneyRoute.stepsToMiles(furthestWalker.steps);
         const location = JourneyRoute.getCurrentWaypoint(miles);
 
         container.innerHTML = `

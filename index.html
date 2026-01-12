@@ -17,27 +17,62 @@
         </header>
 
         <main class="main-content">
-            <div class="map-container">
-                <img src="assets/map.png" alt="Middle-earth Map" class="map-image" id="mapImage">
-                <svg class="map-overlay" id="mapOverlay" preserveAspectRatio="xMidYMid meet">
-                    <!-- Journey path will be drawn here -->
-                    <defs>
-                        <filter id="glow">
-                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                            <feMerge>
-                                <feMergeNode in="coloredBlur"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
-                        <linearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#ffd700;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#ff8c00;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-                    <g id="journeyPath"></g>
-                    <g id="landmarks"></g>
-                    <g id="walkers"></g>
-                </svg>
+            <div class="map-container" id="mapContainer">
+                <div class="map-controls">
+                    <button class="map-btn" id="zoomIn" title="Zoom In">+</button>
+                    <button class="map-btn" id="zoomOut" title="Zoom Out">−</button>
+                    <button class="map-btn" id="zoomFit" title="Fit to View">⊡</button>
+                    <button class="map-btn" id="zoomReset" title="Center on Journey">◎</button>
+                </div>
+                <div class="map-viewport" id="mapViewport">
+                    <div class="map-wrapper" id="mapWrapper">
+                        <img src="assets/map.png" alt="Middle-earth Map" class="map-image" id="mapImage">
+                        <svg class="map-overlay" id="mapOverlay" preserveAspectRatio="xMidYMid meet">
+                            <!-- Journey path will be drawn here -->
+                            <defs>
+                                <!-- Glow filter for the path -->
+                                <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                                    <feMerge>
+                                        <feMergeNode in="coloredBlur"/>
+                                        <feMergeNode in="coloredBlur"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+                                <!-- Intense glow for walker -->
+                                <filter id="walkerGlow" x="-100%" y="-100%" width="300%" height="300%">
+                                    <feGaussianBlur stdDeviation="6" result="blur"/>
+                                    <feMerge>
+                                        <feMergeNode in="blur"/>
+                                        <feMergeNode in="blur"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+                                <!-- Animated gradient for path -->
+                                <linearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#ffd700;stop-opacity:1">
+                                        <animate attributeName="stop-color" values="#ffd700;#ffaa00;#ffd700" dur="3s" repeatCount="indefinite"/>
+                                    </stop>
+                                    <stop offset="50%" style="stop-color:#ff8c00;stop-opacity:1">
+                                        <animate attributeName="stop-color" values="#ff8c00;#ffd700;#ff8c00" dur="3s" repeatCount="indefinite"/>
+                                    </stop>
+                                    <stop offset="100%" style="stop-color:#ff6600;stop-opacity:1">
+                                        <animate attributeName="stop-color" values="#ff6600;#ff8c00;#ff6600" dur="3s" repeatCount="indefinite"/>
+                                    </stop>
+                                </linearGradient>
+                                <!-- Radial glow for landmarks -->
+                                <radialGradient id="landmarkGlow">
+                                    <stop offset="0%" style="stop-color:#ffd700;stop-opacity:0.8"/>
+                                    <stop offset="100%" style="stop-color:#ffd700;stop-opacity:0"/>
+                                </radialGradient>
+                            </defs>
+                            <g id="journeyPath"></g>
+                            <g id="landmarks"></g>
+                            <g id="walkers"></g>
+                        </svg>
+                    </div>
+                </div>
+                <div class="map-hint" id="mapHint">Scroll to zoom • Drag to pan</div>
             </div>
 
             <aside class="stats-panel">
@@ -73,12 +108,15 @@
         </main>
 
         <footer class="footer">
-            <p>"Not all those who wander are lost." &mdash; J.R.R. Tolkien</p>
+            <p>"Not all those who wander are lost."</p>
+            <span class="footer-attribution">J.R.R. Tolkien</span>
         </footer>
     </div>
 
     <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner"></div>
+        <div class="loading-spinner">
+            <div class="loading-spinner-inner"></div>
+        </div>
         <p>Loading journey data...</p>
     </div>
 
