@@ -96,17 +96,9 @@ const MapRenderer = {
         const fullImage = new Image();
 
         fullImage.onload = () => {
-            // Swap to full image
             this.mapImage.src = src;
             this.fullImageLoaded = true;
             this.mapImage.classList.add('loaded');
-        };
-
-        fullImage.onerror = () => {
-            // If WebP fails, try falling back to PNG
-            if (src.endsWith('.webp')) {
-                this.lazyLoadFullImage(src.replace('.webp', '.png'));
-            }
         };
 
         fullImage.src = src;
@@ -320,10 +312,36 @@ const MapRenderer = {
     },
 
     /**
+     * Center on the walker's current position
+     */
+    centerOnWalker(miles) {
+        const rect = this.viewport.getBoundingClientRect();
+        const isMobile = rect.width < 768;
+
+        // Get walker's position along the path
+        const percent = (miles / JourneyRoute.totalMiles) * 100;
+        const position = JourneyRoute.getPositionAtPercent(percent);
+
+        const x = (position.x / 100) * this.imageWidth;
+        const y = (position.y / 100) * this.imageHeight;
+
+        // Zoom level - balanced for viewing context
+        const zoomMultiplier = isMobile ? 0.5 : 0.8;
+        this.zoom = zoomMultiplier;
+
+        // Center on walker position
+        this.panX = rect.width / 2 - x * this.zoom;
+        this.panY = rect.height / 2 - y * this.zoom;
+
+        this.applyTransform();
+    },
+
+    /**
      * Center on the journey path with a nice zoom level
      */
     centerOnJourney() {
         const rect = this.viewport.getBoundingClientRect();
+        const isMobile = rect.width < 768;
 
         // Calculate bounding box of journey waypoints
         const waypoints = JourneyRoute.waypoints;
@@ -336,8 +354,8 @@ const MapRenderer = {
             maxY = Math.max(maxY, wp.y);
         });
 
-        // Add padding
-        const padding = 5;
+        // Add padding - less on mobile to zoom in more
+        const padding = isMobile ? 2 : 3;
         minX = Math.max(0, minX - padding);
         maxX = Math.min(100, maxX + padding);
         minY = Math.max(0, minY - padding);
@@ -349,10 +367,11 @@ const MapRenderer = {
         const boxWidth = ((maxX - minX) / 100) * this.imageWidth;
         const boxHeight = ((maxY - minY) / 100) * this.imageHeight;
 
-        // Calculate zoom to fit journey - zoom in closer for better view
+        // Calculate zoom to fit journey path
         const scaleX = rect.width / boxWidth;
         const scaleY = rect.height / boxHeight;
-        this.zoom = Math.min(scaleX, scaleY) * 1.4;
+        const zoomMultiplier = isMobile ? 0.8 : 1.0;
+        this.zoom = Math.min(scaleX, scaleY) * zoomMultiplier;
 
         // Center on journey
         const centerX = boxX + boxWidth / 2;
@@ -589,6 +608,9 @@ const MapRenderer = {
         this.updateLandmarkStatus(maxMiles);
     },
 
+    // Track if this is the first update (for initial centering)
+    hasInitialCentered: false,
+
     /**
      * Update all map elements
      */
@@ -599,5 +621,14 @@ const MapRenderer = {
 
         this.updateWalkerPositions(walkers);
         this.updateTrail(walkers);
+
+        // Center on walker position on first load
+        if (!this.hasInitialCentered && walkers.length > 0) {
+            const maxMiles = Math.max(...walkers.map(w => w.miles || 0));
+            if (maxMiles > 0) {
+                this.centerOnWalker(maxMiles);
+                this.hasInitialCentered = true;
+            }
+        }
     }
 };

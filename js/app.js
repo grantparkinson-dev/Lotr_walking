@@ -46,8 +46,9 @@ const App = {
                 SheetsAPI.setSelectedWalker(walkerId);
                 this.updateToggleUI(walkerId);
 
-                // Clear existing walker icons and reload
+                // Clear existing walker icons and reset centering flag
                 MapRenderer.walkersGroup.innerHTML = '';
+                MapRenderer.hasInitialCentered = false;
                 await this.loadData();
             });
         });
