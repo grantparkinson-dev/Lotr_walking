@@ -242,9 +242,8 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
     pointer-events: none;
+    overflow: visible;
 }
 
 /* ===== Map Controls ===== */
@@ -535,8 +534,8 @@ body {
 /* ===== Journey Path Styles ===== */
 .journey-path-bg {
     fill: none;
-    stroke: rgba(0, 0, 0, 0.6);
-    stroke-width: 8;
+    stroke: rgba(0, 0, 0, 0.7);
+    stroke-width: 14;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
@@ -544,7 +543,7 @@ body {
 .journey-path-traveled {
     fill: none;
     stroke: url(#pathGradient);
-    stroke-width: 6;
+    stroke-width: 10;
     stroke-linecap: round;
     stroke-linejoin: round;
     filter: url(#glow);
@@ -553,8 +552,8 @@ body {
 }
 
 @keyframes pathGlow {
-    0%, 100% { filter: url(#glow) drop-shadow(0 0 8px rgba(255, 215, 0, 0.6)); }
-    50% { filter: url(#glow) drop-shadow(0 0 16px rgba(255, 140, 0, 0.9)); }
+    0%, 100% { filter: url(#glow) drop-shadow(0 0 12px rgba(255, 215, 0, 0.7)); }
+    50% { filter: url(#glow) drop-shadow(0 0 24px rgba(255, 140, 0, 1)); }
 }
 
 /* ===== Landmark Markers ===== */
@@ -566,15 +565,15 @@ body {
 .landmark-dot {
     fill: #1a1209;
     stroke: #ffd700;
-    stroke-width: 3;
-    filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.8)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+    stroke-width: 4;
+    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.9)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.9));
     transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease;
 }
 
 .landmark-marker:hover .landmark-dot {
     fill: #ffd700;
     stroke: #fff;
-    stroke-width: 4;
+    stroke-width: 5;
 }
 
 /* ===== Landmark Tooltip ===== */

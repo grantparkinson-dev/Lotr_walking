@@ -1,3 +1,5 @@
+console.log('[sheets.js] Script loaded');
+
 /**
  * Google Sheets Integration
  * Fetches step data from a public Google Sheet with multiple tabs
@@ -5,17 +7,15 @@
 
 const SheetsAPI = {
     // Configuration for each walker's sheet
-    // Each walker can have their own spreadsheet (sheetId) and tab (gid)
+    // Using direct published CSV URLs (File -> Share -> Publish to web -> CSV)
     walkerConfigs: {
         joely: {
             name: 'Joely',
-            sheetId: '1_zWBYfuWloRJn3K2T1hkWDjxS8sDm7I5',
-            gid: '72948048'
+            csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvJLPuO1QDECi8Qxf95e0VslciqamZTaypJeP_vWPKD0BrGJ8UEbb6xMXjeu8Hqw/pub?output=csv'
         },
         kylie: {
             name: 'Kylie',
-            sheetId: '1Fu8vpsg-EvSOX93VcfEPAAXSiq9AWsEoz4Aco8363OI',
-            gid: '0'
+            csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTImu1nQsgkEnhMDrkirMmmkothjWvqCAq4Ev4WsPp11qVW7IveO0kJEWJM5mvIM6KpeSEBtIdGSyxv/pub?output=csv'
         },
     },
 
@@ -42,44 +42,151 @@ const SheetsAPI = {
     },
 
     /**
-     * Fetches progress for the selected walker
+     * Save walker data to localStorage
+     */
+    saveToCache(walkerId, data) {
+        const cacheKey = `walkerData_${walkerId}`;
+        const cacheData = {
+            ...data,
+            cachedAt: new Date().toISOString()
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+        console.log(`[Cache] Saved ${walkerId} data:`, cacheData);
+    },
+
+    /**
+     * Load walker data from localStorage
+     */
+    loadFromCache(walkerId) {
+        const cacheKey = `walkerData_${walkerId}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            const data = JSON.parse(cached);
+            console.log(`[Cache] Loaded ${walkerId} data from cache:`, data);
+            return data;
+        }
+        console.log(`[Cache] No cached data for ${walkerId}`);
+        return null;
+    },
+
+    /**
+     * Fetches progress for ALL walkers (for 3D view showing both)
      * @returns {Promise<Array<{name: string, miles: number, steps: number}>>}
      */
-    async fetchProgress() {
+    async fetchAllProgress() {
         const results = [];
-        const walker = this.walkerConfigs[this.selectedWalker];
 
-        if (!walker) return results;
+        for (const walkerId of Object.keys(this.walkerConfigs)) {
+            const walker = this.walkerConfigs[walkerId];
+            console.log(`[Fetch] Fetching ${walkerId}...`);
 
-        try {
-            const data = await this.fetchSheet(walker.sheetId, walker.gid);
-            results.push({
-                name: walker.name,
-                miles: data.totalMiles,
-                steps: Math.round(data.totalMiles * 2000) // Convert miles to steps
-            });
-        } catch (error) {
-            // Silently fail - will fall back to demo data
+            try {
+                const data = await this.fetchFromUrl(walker.csvUrl);
+                if (data.totalMiles > 0) {
+                    const walkerData = {
+                        name: walker.name,
+                        miles: data.totalMiles,
+                        steps: Math.round(data.totalMiles * 2000)
+                    };
+                    results.push(walkerData);
+                    this.saveToCache(walkerId, walkerData);
+                    console.log(`[Fetch] Success! ${walker.name}: ${data.totalMiles} miles`);
+                } else {
+                    // Try cache
+                    const cached = this.loadFromCache(walkerId);
+                    if (cached) results.push(cached);
+                }
+            } catch (error) {
+                console.warn(`[Fetch] Failed for ${walker.name}:`, error.message);
+                const cached = this.loadFromCache(walkerId);
+                if (cached) results.push(cached);
+            }
         }
 
         return results;
     },
 
     /**
-     * Fetches and parses a single sheet tab
-     * @param {string} sheetId - The Google Sheets ID
-     * @param {string} gid - The sheet tab ID
+     * Fetches progress for the selected walker
+     * @returns {Promise<Array<{name: string, miles: number, steps: number}>>}
+     */
+    async fetchProgress() {
+        const results = [];
+        const walker = this.walkerConfigs[this.selectedWalker];
+        const walkerId = this.selectedWalker;
+
+        console.log(`[Fetch] Starting fetch for ${walkerId}...`);
+        console.log(`[Fetch] URL: ${walker?.csvUrl}`);
+
+        if (!walker || !walker.csvUrl) {
+            console.error(`[Fetch] No config found for walker: ${walkerId}`);
+            return this.getFromCacheOrEmpty(walkerId, walker?.name);
+        }
+
+        try {
+            const data = await this.fetchFromUrl(walker.csvUrl);
+            console.log(`[Fetch] Parsed data:`, data);
+
+            if (data.totalMiles > 0) {
+                const walkerData = {
+                    name: walker.name,
+                    miles: data.totalMiles,
+                    steps: Math.round(data.totalMiles * 2000)
+                };
+                results.push(walkerData);
+                // Cache successful fetch
+                this.saveToCache(walkerId, walkerData);
+                console.log(`[Fetch] Success! ${walker.name}: ${data.totalMiles} miles`);
+            } else {
+                console.warn(`[Fetch] Got 0 miles, falling back to cache`);
+                return this.getFromCacheOrEmpty(walkerId, walker.name);
+            }
+        } catch (error) {
+            console.error(`[Fetch] Failed for ${walker.name}:`, error);
+            return this.getFromCacheOrEmpty(walkerId, walker.name);
+        }
+
+        return results;
+    },
+
+    /**
+     * Get cached data or return empty array
+     */
+    getFromCacheOrEmpty(walkerId, walkerName) {
+        const cached = this.loadFromCache(walkerId);
+        if (cached) {
+            console.log(`[Fetch] Using cached data for ${walkerName}`);
+            return [cached];
+        }
+        console.warn(`[Fetch] No cached data available for ${walkerName}`);
+        return [];
+    },
+
+    /**
+     * Fetches and parses CSV from a direct URL
+     * @param {string} url - The published CSV URL
      * @returns {Promise<{totalMiles: number}>}
      */
-    async fetchSheet(sheetId, gid) {
-        // Try published web format first (File -> Publish to web)
-        let url = `https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv&gid=${gid}`;
-        let response = await fetch(url);
+    async fetchFromUrl(url) {
+        // Add cache-busting parameter to ensure fresh data
+        const cacheBuster = `_cb=${Date.now()}`;
+        const separator = url.includes('?') ? '&' : '?';
+        let fetchUrl = `${url}${separator}${cacheBuster}`;
 
-        // If that fails, try export format (Share -> Anyone with link)
-        if (!response.ok) {
-            url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-            response = await fetch(url);
+        console.log(`[Fetch] Attempting direct fetch: ${fetchUrl}`);
+
+        // Try direct fetch first
+        let response;
+        try {
+            response = await fetch(fetchUrl);
+            console.log(`[Fetch] Direct fetch response status: ${response.status}`);
+        } catch (e) {
+            // If CORS error, try with a proxy
+            console.log(`[Fetch] Direct fetch failed with error:`, e.message);
+            console.log(`[Fetch] Trying CORS proxy...`);
+            fetchUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            response = await fetch(fetchUrl);
+            console.log(`[Fetch] Proxy fetch response status: ${response.status}`);
         }
 
         if (!response.ok) {
@@ -87,6 +194,9 @@ const SheetsAPI = {
         }
 
         const csvText = await response.text();
+        console.log(`[Fetch] CSV text length: ${csvText.length} chars`);
+        console.log(`[Fetch] CSV first 500 chars:`, csvText.substring(0, 500));
+
         return this.parseWalkToMordorCSV(csvText);
     },
 
@@ -99,6 +209,7 @@ const SheetsAPI = {
      */
     parseWalkToMordorCSV(csvText) {
         const lines = csvText.trim().split('\n');
+        console.log(`[Parse] Total lines: ${lines.length}`);
 
         // Find the header row that contains "Total" as a column header
         let totalColumnIndex = -1;
@@ -113,14 +224,24 @@ const SheetsAPI = {
             if (totalIdx !== -1) {
                 totalColumnIndex = totalIdx;
                 dataStartRow = i + 1;
+                console.log(`[Parse] Found "Total" header at row ${i}, column ${totalIdx}`);
+                console.log(`[Parse] Header row:`, columns);
                 break;
             }
         }
 
-        if (totalColumnIndex === -1) return { totalMiles: 0 };
+        if (totalColumnIndex === -1) {
+            console.error(`[Parse] Could not find "Total" column header!`);
+            console.log(`[Parse] First 10 lines:`);
+            lines.slice(0, 10).forEach((line, i) => {
+                console.log(`  Line ${i}:`, this.parseCSVLine(line));
+            });
+            return { totalMiles: 0 };
+        }
 
         // Find the last row with a valid total value
         let lastTotal = 0;
+        let lastValidRow = -1;
 
         for (let i = dataStartRow; i < lines.length; i++) {
             const columns = this.parseCSVLine(lines[i]);
@@ -128,10 +249,12 @@ const SheetsAPI = {
                 const value = parseFloat(columns[totalColumnIndex]);
                 if (!isNaN(value) && value > 0) {
                     lastTotal = value;
+                    lastValidRow = i;
                 }
             }
         }
 
+        console.log(`[Parse] Last valid total: ${lastTotal} (row ${lastValidRow})`);
         return { totalMiles: lastTotal };
     },
 
@@ -163,24 +286,22 @@ const SheetsAPI = {
     },
 
     /**
-     * Validates the sheet ID is configured
+     * Validates the sheet URL is configured
      * @returns {boolean}
      */
     isConfigured() {
         const walker = this.walkerConfigs[this.selectedWalker];
         return walker &&
-               walker.sheetId &&
-               walker.sheetId !== 'YOUR_SHEET_ID_HERE' &&
-               walker.sheetId.length > 10 &&
-               walker.gid !== undefined;
+               walker.csvUrl &&
+               walker.csvUrl.includes('docs.google.com');
     }
 };
 
-// For demo/testing when no sheet is configured
+// For demo/testing when no sheet is configured or fetch fails
 const DemoData = {
-    // Hardcoded walker data
+    // Hardcoded walker data as fallback
     hardcodedWalkers: {
-        joely: { name: 'Joely', miles: 813.8, steps: 1627600 },
+        joely: { name: 'Joely', miles: 843.7, steps: 1687400 },
         kylie: { name: 'Kylie', miles: 571.3, steps: 1142600 }
     },
 
@@ -192,7 +313,7 @@ const DemoData = {
         return [this.hardcodedWalkers.joely];
     },
 
-    // Get both walkers for 3D view
+    // Get both walkers for views that show everyone
     getAllWalkers() {
         return [
             this.hardcodedWalkers.joely,

@@ -135,6 +135,70 @@ const Map3D = {
         'Emyn Muil': 'The maze of sharp rocks where Frodo and Sam captured Gollum and made him swear to guide them.',
     },
 
+    // Detailed POI information for info panels
+    poiDetailedInfo: {
+        'Hobbiton': {
+            region: 'The Shire',
+            funFact: 'Bag End was built into the Hill by Bungo Baggins for his wife Belladonna Took, and later inherited by Bilbo and then Frodo.'
+        },
+        'Bree': {
+            region: 'Bree-land',
+            funFact: 'Bree is one of the few places where Hobbits and Men live together. The Prancing Pony has been run by the Butterbur family for generations.'
+        },
+        'Weathertop': {
+            region: 'Arnor (ruins)',
+            funFact: 'Originally called Amon Sûl, it held the chief Palantír of the North Kingdom. The tower was destroyed in 1409 of the Third Age.'
+        },
+        'Rivendell': {
+            region: 'Eastern Eriador',
+            funFact: 'Founded by Elrond in 1697 of the Second Age, Rivendell remained hidden and protected for over 6,000 years.'
+        },
+        'Lothlórien': {
+            region: 'East of the Misty Mountains',
+            funFact: 'The mallorn trees of Lothlórien were a gift from the Elves of Tol Eressëa. They only grow in this forest in Middle-earth.'
+        },
+        'Minas Tirith': {
+            region: 'Gondor',
+            funFact: 'The White City has seven levels, each wall higher than the one below. The Tower of Ecthelion rises 300 feet above the citadel.'
+        },
+        'Mount Doom': {
+            region: 'Mordor',
+            funFact: 'Sauron chose this mountain specifically because its fires were hot enough to forge the One Ring - and the only fires that could unmake it.'
+        },
+        'Helm\'s Deep': {
+            region: 'Rohan',
+            funFact: 'Named after Helm Hammerhand, a King of Rohan who took refuge here during the Long Winter and became a figure of legend.'
+        },
+        'Edoras': {
+            region: 'Rohan',
+            funFact: 'Meduseld, the Golden Hall, is so named because its roof is thatched with gold. It can be seen glittering from miles away.'
+        },
+        'Black Gate': {
+            region: 'Mordor',
+            funFact: 'The Morannon was built by Sauron in the Second Age. Its iron gates are 60 feet high and guarded by the Towers of the Teeth.'
+        },
+        'Dead Marshes': {
+            region: 'Between Emyn Muil and Mordor',
+            funFact: 'The marshes expanded to cover the graves of those who fell in the Battle of Dagorlad at the end of the Second Age.'
+        },
+        'Cirith Ungol': {
+            region: 'Ephel Dúath (Mountains of Shadow)',
+            funFact: 'Shelob is the last child of Ungoliant, the primordial spider who helped Morgoth destroy the Two Trees of Valinor.'
+        },
+        'Fangorn Forest': {
+            region: 'Beneath the southern Misty Mountains',
+            funFact: 'Treebeard is the oldest living thing in Middle-earth, having walked the forests before even the Elves awoke.'
+        },
+        'Argonath': {
+            region: 'Northern Gondor',
+            funFact: 'The statues of Isildur and Anárion are carved from the cliffs themselves and stand over 400 feet tall.'
+        },
+        'Minas Morgul': {
+            region: 'Mordor',
+            funFact: 'Once called Minas Ithil (Tower of the Moon), it was captured by the Nazgûl in 2002 of the Third Age.'
+        }
+    },
+
     /**
      * Initialize the 3D map
      */
@@ -195,6 +259,187 @@ const Map3D = {
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         `;
         container.appendChild(this.tooltip);
+
+        // Create info panel for clicks
+        this.infoPanel = document.createElement('div');
+        this.infoPanel.className = 'map3d-info-panel';
+        this.infoPanel.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(145deg, rgba(30, 25, 18, 0.98), rgba(20, 15, 10, 0.98));
+            border: 3px solid #d4af37;
+            border-radius: 12px;
+            padding: 0;
+            color: #f4e4bc;
+            font-family: 'Crimson Text', Georgia, serif;
+            max-width: 420px;
+            min-width: 320px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+            z-index: 2000;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,215,0,0.1);
+            overflow: hidden;
+        `;
+        container.appendChild(this.infoPanel);
+
+        // Close panel when clicking outside
+        container.addEventListener('click', (e) => {
+            if (!this.infoPanel.contains(e.target) && this.infoPanel.style.opacity === '1') {
+                // Don't close immediately if we just opened it
+                if (!this._justOpened) {
+                    this.closeInfoPanel();
+                }
+            }
+            this._justOpened = false;
+        });
+    },
+
+    /**
+     * Show info panel for POI
+     */
+    showPoiInfoPanel(name) {
+        const waypoint = JourneyRoute.waypoints.find(w => w.name === name);
+        const lore = this.poiLore[name] || 'A mysterious location along the journey.';
+        const detailedInfo = this.poiDetailedInfo[name] || {};
+
+        const miles = waypoint ? waypoint.miles : '???';
+        const description = waypoint ? waypoint.description : detailedInfo.description || '';
+
+        this.infoPanel.innerHTML = `
+            <div style="background: linear-gradient(90deg, #d4af37, #b8962e, #d4af37); padding: 16px 20px; border-bottom: 1px solid #8b7355;">
+                <h2 style="margin: 0; color: #1a1209; font-family: 'Cinzel', serif; font-size: 24px; text-shadow: 1px 1px 0 rgba(255,255,255,0.3);">${name}</h2>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display: flex; gap: 20px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid rgba(212,175,55,0.3);">
+                    <div style="text-align: center;">
+                        <div style="font-size: 28px; color: #ffd700; font-weight: bold;">${miles}</div>
+                        <div style="font-size: 12px; color: #999; text-transform: uppercase;">Miles from Shire</div>
+                    </div>
+                    ${detailedInfo.region ? `
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; color: #c9a227;">${detailedInfo.region}</div>
+                        <div style="font-size: 12px; color: #999; text-transform: uppercase;">Region</div>
+                    </div>
+                    ` : ''}
+                </div>
+                <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; font-style: italic; color: #ccc;">"${description}"</p>
+                <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 8px; border-left: 3px solid #d4af37;">
+                    <h4 style="margin: 0 0 8px 0; color: #ffd700; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">The Story</h4>
+                    <p style="margin: 0; font-size: 14px; line-height: 1.7; color: #e8dcc8;">${lore}</p>
+                </div>
+                ${detailedInfo.funFact ? `
+                <div style="margin-top: 14px; padding: 12px; background: rgba(212,175,55,0.1); border-radius: 6px;">
+                    <span style="color: #d4af37; font-weight: bold;">Did you know?</span>
+                    <span style="color: #ccc;"> ${detailedInfo.funFact}</span>
+                </div>
+                ` : ''}
+            </div>
+            <button onclick="Map3D.closeInfoPanel()" style="
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                background: rgba(0,0,0,0.5);
+                border: 1px solid #666;
+                color: #ccc;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+            " onmouseover="this.style.background='rgba(200,50,50,0.8)';this.style.color='#fff';" onmouseout="this.style.background='rgba(0,0,0,0.5)';this.style.color='#ccc';">✕</button>
+        `;
+
+        this.infoPanel.style.opacity = '1';
+        this.infoPanel.style.visibility = 'visible';
+        this._justOpened = true;
+    },
+
+    /**
+     * Show info panel for walker
+     */
+    showWalkerInfoPanel(walkerData) {
+        const progressPercent = walkerData.percent.toFixed(1);
+        const currentLocation = walkerData.currentLocation;
+        const nextLocation = walkerData.nextLocation;
+        const milesRemaining = (JourneyRoute.totalMiles - walkerData.miles).toFixed(1);
+        const color = walkerData.name === 'Joely' ? '#7dffb3' : '#ff7eb3';
+        const borderColor = walkerData.name === 'Joely' ? '#00cc66' : '#cc3366';
+
+        this.infoPanel.innerHTML = `
+            <div style="background: linear-gradient(90deg, ${borderColor}, ${color}, ${borderColor}); padding: 16px 20px; border-bottom: 1px solid #8b7355;">
+                <h2 style="margin: 0; color: #1a1209; font-family: 'Cinzel', serif; font-size: 24px; text-shadow: 1px 1px 0 rgba(255,255,255,0.3);">${walkerData.name}</h2>
+                <div style="font-size: 12px; color: #333; margin-top: 4px;">Fellowship Member</div>
+            </div>
+            <div style="padding: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                    <div style="text-align: center; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                        <div style="font-size: 32px; color: ${color}; font-weight: bold;">${walkerData.steps.toLocaleString()}</div>
+                        <div style="font-size: 12px; color: #999; text-transform: uppercase;">Total Steps</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                        <div style="font-size: 32px; color: ${color}; font-weight: bold;">${walkerData.miles.toFixed(1)}</div>
+                        <div style="font-size: 12px; color: #999; text-transform: uppercase;">Miles Walked</div>
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 4px; margin-bottom: 16px;">
+                    <div style="background: linear-gradient(90deg, ${borderColor}, ${color}); height: 24px; border-radius: 6px; width: ${progressPercent}%; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 12px; font-weight: bold; color: #1a1209;">${progressPercent}%</div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div style="padding: 12px; background: rgba(212,175,55,0.1); border-radius: 8px; border-left: 3px solid #d4af37;">
+                        <div style="font-size: 11px; color: #999; text-transform: uppercase; margin-bottom: 4px;">Current Location</div>
+                        <div style="font-size: 15px; color: #ffd700;">${currentLocation}</div>
+                    </div>
+                    <div style="padding: 12px; background: rgba(212,175,55,0.1); border-radius: 8px; border-left: 3px solid #d4af37;">
+                        <div style="font-size: 11px; color: #999; text-transform: uppercase; margin-bottom: 4px;">Next Destination</div>
+                        <div style="font-size: 15px; color: #ffd700;">${nextLocation}</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 16px; text-align: center; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                    <span style="color: #999;">Only </span>
+                    <span style="color: ${color}; font-size: 20px; font-weight: bold;">${milesRemaining}</span>
+                    <span style="color: #999;"> miles to Mount Doom!</span>
+                </div>
+            </div>
+            <button onclick="Map3D.closeInfoPanel()" style="
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                background: rgba(0,0,0,0.5);
+                border: 1px solid #666;
+                color: #ccc;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+            " onmouseover="this.style.background='rgba(200,50,50,0.8)';this.style.color='#fff';" onmouseout="this.style.background='rgba(0,0,0,0.5)';this.style.color='#ccc';">✕</button>
+        `;
+
+        this.infoPanel.style.opacity = '1';
+        this.infoPanel.style.visibility = 'visible';
+        this._justOpened = true;
+    },
+
+    /**
+     * Close info panel
+     */
+    closeInfoPanel() {
+        this.infoPanel.style.opacity = '0';
+        this.infoPanel.style.visibility = 'hidden';
     },
 
     /**
@@ -370,6 +615,17 @@ const Map3D = {
         const target = this.controls.target;
         const camera = this.camera;
 
+        // Calculate distance-based speed scaling
+        // When zoomed in (close), speed is lower; when zoomed out (far), speed is higher
+        const distance = camera.position.distanceTo(target);
+        const minDist = this.controls.minDistance || 150;
+        const maxDist = this.controls.maxDistance || 2000;
+
+        // Scale factor: 0.1 at min distance, 1.0 at max distance
+        const scaleFactor = 0.1 + 0.9 * ((distance - minDist) / (maxDist - minDist));
+        const currentMoveSpeed = this.moveSpeed * scaleFactor;
+        const currentZoomSpeed = this.zoomSpeed * scaleFactor;
+
         // Get camera direction (ignoring Y)
         const direction = new THREE.Vector3();
         camera.getWorldDirection(direction);
@@ -382,30 +638,30 @@ const Map3D = {
 
         // Apply movement
         if (this.keys.forward) {
-            target.add(direction.clone().multiplyScalar(this.moveSpeed));
-            camera.position.add(direction.clone().multiplyScalar(this.moveSpeed));
+            target.add(direction.clone().multiplyScalar(currentMoveSpeed));
+            camera.position.add(direction.clone().multiplyScalar(currentMoveSpeed));
         }
         if (this.keys.backward) {
-            target.sub(direction.clone().multiplyScalar(this.moveSpeed));
-            camera.position.sub(direction.clone().multiplyScalar(this.moveSpeed));
+            target.sub(direction.clone().multiplyScalar(currentMoveSpeed));
+            camera.position.sub(direction.clone().multiplyScalar(currentMoveSpeed));
         }
         if (this.keys.left) {
-            target.sub(right.clone().multiplyScalar(this.moveSpeed));
-            camera.position.sub(right.clone().multiplyScalar(this.moveSpeed));
+            target.sub(right.clone().multiplyScalar(currentMoveSpeed));
+            camera.position.sub(right.clone().multiplyScalar(currentMoveSpeed));
         }
         if (this.keys.right) {
-            target.add(right.clone().multiplyScalar(this.moveSpeed));
-            camera.position.add(right.clone().multiplyScalar(this.moveSpeed));
+            target.add(right.clone().multiplyScalar(currentMoveSpeed));
+            camera.position.add(right.clone().multiplyScalar(currentMoveSpeed));
         }
 
         // Apply zoom
         if (this.keys.zoomIn) {
             const zoomDir = new THREE.Vector3().subVectors(target, camera.position).normalize();
-            camera.position.add(zoomDir.multiplyScalar(this.zoomSpeed));
+            camera.position.add(zoomDir.multiplyScalar(currentZoomSpeed));
         }
         if (this.keys.zoomOut) {
             const zoomDir = new THREE.Vector3().subVectors(target, camera.position).normalize();
-            camera.position.sub(zoomDir.multiplyScalar(this.zoomSpeed));
+            camera.position.sub(zoomDir.multiplyScalar(currentZoomSpeed));
         }
     },
 
@@ -449,7 +705,9 @@ const Map3D = {
         }
 
         if (targetX !== undefined && targetZ !== undefined) {
-            this.smoothFocusOn(targetX, targetZ);
+            // Navigation buttons use wider view, walker gets closer
+            const closeUp = (location === 'walker');
+            this.smoothFocusOn(targetX, targetZ, closeUp);
         }
     },
 
@@ -471,7 +729,37 @@ const Map3D = {
         this.mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
 
         this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.poiObjects.filter(o => o.isSprite));
+
+        // Check walkers first (they're on top)
+        const walkerSprites = this.walkerObjects.filter(o => o.isSprite && o.userData.isWalker);
+        const walkerIntersects = this.raycaster.intersectObjects(walkerSprites);
+
+        if (walkerIntersects.length > 0) {
+            const walker = walkerIntersects[0].object.userData;
+            const color = walker.name === 'Joely' ? '#00ff88' : '#ff4488';
+
+            this.tooltip.innerHTML = `
+                <strong style="color: ${color}; font-size: 16px;">${walker.name}</strong>
+                <div style="margin-top: 10px; line-height: 1.6;">
+                    <div><span style="color: #999;">Steps:</span> <strong>${walker.steps.toLocaleString()}</strong></div>
+                    <div><span style="color: #999;">Miles:</span> <strong>${walker.miles.toFixed(1)}</strong></div>
+                    <div><span style="color: #999;">Progress:</span> <strong>${walker.percent.toFixed(1)}%</strong></div>
+                    <div style="margin-top: 8px; border-top: 1px solid #444; padding-top: 8px;">
+                        <div><span style="color: #999;">At:</span> ${walker.currentLocation}</div>
+                        <div><span style="color: #999;">Next:</span> ${walker.nextLocation}</div>
+                    </div>
+                </div>
+            `;
+            this.tooltip.style.opacity = '1';
+            this.tooltip.style.left = (event.clientX - rect.left + 15) + 'px';
+            this.tooltip.style.top = (event.clientY - rect.top + 15) + 'px';
+
+            this.keepTooltipInBounds(rect, event);
+            return;
+        }
+
+        // Check POIs
+        const intersects = this.raycaster.intersectObjects(this.poiObjects.filter(o => o.isSprite && !o.userData.isLabel));
 
         if (intersects.length > 0) {
             const poi = intersects[0].object;
@@ -483,33 +771,60 @@ const Map3D = {
             this.tooltip.style.left = (event.clientX - rect.left + 15) + 'px';
             this.tooltip.style.top = (event.clientY - rect.top + 15) + 'px';
 
-            // Keep tooltip in bounds
-            const tooltipRect = this.tooltip.getBoundingClientRect();
-            if (tooltipRect.right > rect.right) {
-                this.tooltip.style.left = (event.clientX - rect.left - tooltipRect.width - 15) + 'px';
-            }
-            if (tooltipRect.bottom > rect.bottom) {
-                this.tooltip.style.top = (event.clientY - rect.top - tooltipRect.height - 15) + 'px';
-            }
+            this.keepTooltipInBounds(rect, event);
         } else {
             this.tooltip.style.opacity = '0';
         }
     },
 
     /**
-     * Handle click to focus on POI
+     * Keep tooltip within container bounds
+     */
+    keepTooltipInBounds(rect, event) {
+        const tooltipRect = this.tooltip.getBoundingClientRect();
+        if (tooltipRect.right > rect.right) {
+            this.tooltip.style.left = (event.clientX - rect.left - tooltipRect.width - 15) + 'px';
+        }
+        if (tooltipRect.bottom > rect.bottom) {
+            this.tooltip.style.top = (event.clientY - rect.top - tooltipRect.height - 15) + 'px';
+        }
+    },
+
+    /**
+     * Handle click to focus on POI or walker and show info panel
      */
     onMouseClick(event, container) {
+        // Don't process if clicking on info panel
+        if (this.infoPanel && this.infoPanel.contains(event.target)) {
+            return;
+        }
+
         const rect = container.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
         this.mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
 
         this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.poiObjects.filter(o => o.isSprite));
+
+        // Check walkers first
+        const walkerSprites = this.walkerObjects.filter(o => o.isSprite && o.userData.isWalker);
+        const walkerIntersects = this.raycaster.intersectObjects(walkerSprites);
+
+        if (walkerIntersects.length > 0) {
+            const walker = walkerIntersects[0].object;
+            this.smoothFocusOn(walker.position.x, walker.position.z, true);
+            this.showWalkerInfoPanel(walker.userData);
+            return;
+        }
+
+        // Check POIs (exclude labels)
+        const poiSprites = this.poiObjects.filter(o => o.isSprite && !o.userData.isLabel);
+        const intersects = this.raycaster.intersectObjects(poiSprites);
 
         if (intersects.length > 0) {
             const poi = intersects[0].object;
-            this.smoothFocusOn(poi.position.x, poi.position.z);
+            const name = poi.userData.name;
+            this.smoothFocusOn(poi.position.x, poi.position.z, true);
+            this.showPoiInfoPanel(name);
         }
     },
 
@@ -532,8 +847,13 @@ const Map3D = {
     /**
      * Smoothly animate camera to focus on position
      */
-    smoothFocusOn(x, z) {
-        const targetPos = { x: x + 150, y: 300, z: z + 200 };
+    smoothFocusOn(x, z, closeUp = true) {
+        // Close up view for POI clicks, further out for navigation
+        const offsetX = closeUp ? 80 : 150;
+        const offsetY = closeUp ? 180 : 300;
+        const offsetZ = closeUp ? 120 : 200;
+
+        const targetPos = { x: x + offsetX, y: offsetY, z: z + offsetZ };
         const startPos = {
             x: this.camera.position.x,
             y: this.camera.position.y,
@@ -544,8 +864,14 @@ const Map3D = {
 
         let progress = 0;
         const animate = () => {
-            progress += 0.02;
-            if (progress >= 1) return;
+            progress += 0.025;
+            if (progress >= 1) {
+                // Snap to final position
+                this.camera.position.set(targetPos.x, targetPos.y, targetPos.z);
+                this.controls.target.copy(endTarget);
+                this.controls.update();
+                return;
+            }
 
             const eased = 1 - Math.pow(1 - progress, 3); // ease out cubic
 
@@ -751,65 +1077,115 @@ const Map3D = {
      */
     createTextSprite(text, options = {}) {
         const {
-            fontSize = 24,
-            fontFamily = 'Cinzel, serif',
-            color = '#f4e4bc',
-            strokeColor = '#1a1209',
-            strokeWidth = 4,
+            fontSize = 28,
+            fontFamily = 'Arial, sans-serif',
+            fontWeight = 'bold',
+            color = '#ffffff',
+            strokeColor = '#000000',
+            strokeWidth = 5,
             padding = 10,
-            backgroundColor = 'rgba(20, 15, 10, 0.7)',
-            borderColor = '#c9a227',
+            backgroundColor = 'rgba(15, 12, 8, 0.92)',
+            borderColor = '#d4af37',
             borderWidth = 2,
-            maxWidth = 200
+            maxWidth = 280,
+            shadowColor = 'rgba(0,0,0,0.5)',
+            shadowBlur = 8
         } = options;
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
         // Set font to measure text
-        ctx.font = `${fontSize}px ${fontFamily}`;
+        ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
         const metrics = ctx.measureText(text);
         const textWidth = Math.min(metrics.width, maxWidth);
 
-        // Set canvas size with padding
-        canvas.width = textWidth + padding * 2 + borderWidth * 2;
-        canvas.height = fontSize + padding * 2 + borderWidth * 2;
+        // Set canvas size with padding and shadow space
+        const extraSpace = shadowBlur * 2;
+        canvas.width = textWidth + padding * 2 + borderWidth * 2 + extraSpace;
+        canvas.height = fontSize + padding * 2 + borderWidth * 2 + extraSpace;
 
-        // Background
+        const offsetX = extraSpace / 2;
+        const offsetY = extraSpace / 2;
+
+        // Shadow
+        ctx.shadowColor = shadowColor;
+        ctx.shadowBlur = shadowBlur;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+
+        // Background with rounded corners
         ctx.fillStyle = backgroundColor;
+        ctx.beginPath();
+        ctx.roundRect(offsetX + borderWidth / 2, offsetY + borderWidth / 2,
+                      canvas.width - extraSpace - borderWidth,
+                      canvas.height - extraSpace - borderWidth, 8);
+        ctx.fill();
+
+        // Reset shadow for border
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        // Border
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = borderWidth;
+        ctx.stroke();
+
+        // Inner glow line
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.roundRect(borderWidth / 2, borderWidth / 2, canvas.width - borderWidth, canvas.height - borderWidth, 4);
-        ctx.fill();
+        ctx.roundRect(offsetX + borderWidth + 2, offsetY + borderWidth + 2,
+                      canvas.width - extraSpace - borderWidth * 2 - 4,
+                      canvas.height - extraSpace - borderWidth * 2 - 4, 6);
         ctx.stroke();
 
         // Text with stroke
-        ctx.font = `${fontSize}px ${fontFamily}`;
+        ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // Stroke
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // Text shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+
+        // Stroke for visibility
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = strokeWidth;
-        ctx.strokeText(text, canvas.width / 2, canvas.height / 2);
+        ctx.strokeText(text, centerX, centerY);
 
         // Fill
         ctx.fillStyle = color;
-        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+        ctx.fillText(text, centerX, centerY);
 
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
 
         const material = new THREE.SpriteMaterial({
             map: texture,
-            transparent: true
+            transparent: true,
+            depthTest: false,
+            depthWrite: false
         });
 
         const sprite = new THREE.Sprite(material);
-        // Scale based on canvas aspect ratio
-        const scale = 0.5;
-        sprite.scale.set(canvas.width * scale / 10, canvas.height * scale / 10, 1);
+
+        // Base scale - larger for better visibility
+        const baseScaleX = canvas.width / 6;
+        const baseScaleY = canvas.height / 6;
+        sprite.scale.set(baseScaleX, baseScaleY, 1);
+
+        // Store base scale for dynamic scaling
+        sprite.userData.baseScaleX = baseScaleX;
+        sprite.userData.baseScaleY = baseScaleY;
+        sprite.userData.isLabel = true;
 
         return sprite;
     },
@@ -860,12 +1236,16 @@ const Map3D = {
 
         // Add text label above POI
         const label = this.createTextSprite(name, {
-            fontSize: type === 'waypoint' ? 16 : 18,
-            padding: 5,
-            backgroundColor: 'rgba(20, 15, 10, 0.8)'
+            fontSize: type === 'waypoint' ? 32 : 36,
+            padding: 12,
+            backgroundColor: 'rgba(20, 16, 10, 0.95)',
+            borderColor: '#d4af37',
+            color: '#ffeaa7',
+            strokeWidth: 5,
+            shadowBlur: 8
         });
-        label.position.set(pos.x, size.h + 10, pos.z);
-        label.userData = { isLabel: true, parentName: name };
+        label.position.set(pos.x, size.h + 25, pos.z);
+        label.userData.parentName = name;
         this.poiObjects.push(label);
         this.scene.add(label);
 
@@ -1104,13 +1484,40 @@ const Map3D = {
     updateAnimations() {
         const time = Date.now() * 0.001;
 
-        // Animate POI sprites
+        // Calculate zoom-based label scale
+        const distance = this.camera.position.distanceTo(this.controls.target);
+        const minDist = this.controls.minDistance || 150;
+        const maxDist = this.controls.maxDistance || 2000;
+        // Labels scale: smaller when zoomed in, larger when zoomed out
+        // Range from 0.4 (close) to 1.2 (far)
+        const labelScale = 0.4 + 0.8 * ((distance - minDist) / (maxDist - minDist));
+
+        // Animate POI sprites and scale labels
         this.poiObjects.forEach(obj => {
             if (obj.isSprite && obj.userData.baseY) {
                 obj.position.y = obj.userData.baseY + Math.sin(time * 1.5 + obj.position.x * 0.01) * 1.5;
             }
             if (obj.userData.isGroundMarker) {
                 obj.rotation.z += 0.003;
+            }
+            // Scale labels based on zoom
+            if (obj.userData.isLabel && obj.userData.baseScaleX) {
+                obj.scale.set(
+                    obj.userData.baseScaleX * labelScale,
+                    obj.userData.baseScaleY * labelScale,
+                    1
+                );
+            }
+        });
+
+        // Scale walker labels
+        this.walkerObjects.forEach(obj => {
+            if (obj.userData && obj.userData.isLabel && obj.userData.baseScaleX) {
+                obj.scale.set(
+                    obj.userData.baseScaleX * labelScale,
+                    obj.userData.baseScaleY * labelScale,
+                    1
+                );
             }
         });
 
@@ -1223,21 +1630,37 @@ const Map3D = {
             sprite.position.y = 25;
             sprite.scale.set(30, 30, 1);
 
+            // Store walker data for tooltip
+            const currentLocation = JourneyRoute.getCurrentWaypoint(miles);
+            const nextLocation = JourneyRoute.getNextWaypoint(miles);
+            sprite.userData = {
+                isWalker: true,
+                name: walker.name,
+                miles: miles,
+                steps: walker.steps,
+                percent: percent * 100,
+                currentLocation: currentLocation.name,
+                nextLocation: nextLocation ? nextLocation.name : 'Mount Doom'
+            };
+
             this.walkerObjects.push(sprite);
             this.scene.add(sprite);
 
             // Add name label above walker
-            const labelColor = index === 0 ? '#00ff88' : '#ff4488';
+            const labelColor = index === 0 ? '#7dffb3' : '#ff7eb3';
+            const borderCol = index === 0 ? '#00cc66' : '#cc3366';
             const label = this.createTextSprite(walker.name, {
-                fontSize: 20,
+                fontSize: 38,
                 color: labelColor,
-                padding: 8,
-                backgroundColor: 'rgba(10, 8, 5, 0.85)',
-                borderColor: labelColor,
-                borderWidth: 2
+                padding: 14,
+                backgroundColor: 'rgba(10, 8, 5, 0.95)',
+                borderColor: borderCol,
+                borderWidth: 3,
+                strokeWidth: 5,
+                shadowBlur: 8
             });
             label.position.copy(point);
-            label.position.y = 50;
+            label.position.y = 58;
             this.walkerObjects.push(label);
             this.scene.add(label);
 

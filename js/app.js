@@ -148,17 +148,27 @@ const App = {
      */
     async loadData() {
         try {
+            // Try to fetch both walkers from sheets
             if (SheetsAPI.isConfigured()) {
-                this.walkers = await SheetsAPI.fetchProgress();
-            } else {
-                this.walkers = DemoData.getWalkers();
+                this.allWalkers = await SheetsAPI.fetchAllProgress();
+                console.log('[App] Fetched all walkers:', this.allWalkers);
             }
 
-            // Always load both walkers for 3D view (using hardcoded data)
-            this.allWalkers = DemoData.getAllWalkers();
+            // Fall back to demo data if sheets didn't return anything
+            if (!this.allWalkers || this.allWalkers.length === 0) {
+                console.log('[App] Using demo data fallback');
+                this.allWalkers = DemoData.getAllWalkers();
+            }
+
+            // Set walkers to selected walker for backward compatibility
+            this.walkers = this.allWalkers;
 
             this.updateUI();
-            MapRenderer.update(this.walkers);
+
+            // Filter to only the selected walker for 2D map
+            const selectedWalker = this.allWalkers.find(w => w.name.toLowerCase() === SheetsAPI.selectedWalker);
+            const walkersFor2D = selectedWalker ? [selectedWalker] : this.allWalkers;
+            MapRenderer.update(walkersFor2D);
 
             // Update 3D map if initialized - show both walkers
             if (this.is3DMode && this.map3dInitialized && typeof Map3D !== 'undefined') {
@@ -168,11 +178,16 @@ const App = {
             this.updateLastUpdated();
 
         } catch (error) {
+            console.error('[App] Error loading data:', error);
             // Fall back to demo data on error
-            this.walkers = DemoData.getWalkers();
+            this.walkers = DemoData.getAllWalkers();
             this.allWalkers = DemoData.getAllWalkers();
             this.updateUI();
-            MapRenderer.update(this.walkers);
+
+            // Filter to only the selected walker for 2D map
+            const selectedWalker = this.allWalkers.find(w => w.name.toLowerCase() === SheetsAPI.selectedWalker);
+            const walkersFor2D = selectedWalker ? [selectedWalker] : this.allWalkers;
+            MapRenderer.update(walkersFor2D);
 
             if (this.is3DMode && this.map3dInitialized && typeof Map3D !== 'undefined') {
                 Map3D.update(this.allWalkers);
@@ -195,7 +210,10 @@ const App = {
         const container = document.getElementById('walkersContainer');
         container.innerHTML = '';
 
-        this.walkers.forEach((walker, index) => {
+        // Always show both walkers
+        const walkersToShow = this.allWalkers.length > 0 ? this.allWalkers : this.walkers;
+
+        walkersToShow.forEach((walker, index) => {
             // Use miles directly if available, otherwise calculate from steps
             const miles = walker.miles || JourneyRoute.stepsToMiles(walker.steps);
             const percent = (miles / JourneyRoute.totalMiles) * 100;

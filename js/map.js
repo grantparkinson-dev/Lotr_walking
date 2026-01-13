@@ -482,7 +482,7 @@ const MapRenderer = {
             const glowRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             glowRing.setAttribute('cx', x);
             glowRing.setAttribute('cy', y);
-            glowRing.setAttribute('r', 20);
+            glowRing.setAttribute('r', 35);
             glowRing.setAttribute('fill', 'url(#landmarkGlow)');
             glowRing.setAttribute('class', 'landmark-glow-ring');
 
@@ -490,14 +490,14 @@ const MapRenderer = {
             const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             circle.setAttribute('cx', x);
             circle.setAttribute('cy', y);
-            circle.setAttribute('r', 12);
+            circle.setAttribute('r', 18);
             circle.setAttribute('class', 'landmark-dot');
 
             // Inner highlight
             const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            innerCircle.setAttribute('cx', x - 3);
-            innerCircle.setAttribute('cy', y - 3);
-            innerCircle.setAttribute('r', 4);
+            innerCircle.setAttribute('cx', x - 4);
+            innerCircle.setAttribute('cy', y - 4);
+            innerCircle.setAttribute('r', 6);
             innerCircle.setAttribute('fill', 'rgba(255, 255, 255, 0.4)');
             innerCircle.setAttribute('class', 'landmark-highlight');
 
@@ -565,6 +565,7 @@ const MapRenderer = {
 
     /**
      * Update walker positions
+     * Uses the actual SVG path to position walkers at the end of the trail
      */
     updateWalkerPositions(walkers) {
         walkers.forEach((walker, index) => {
@@ -572,55 +573,142 @@ const MapRenderer = {
             if (!group) return;
 
             const miles = walker.miles || JourneyRoute.stepsToMiles(walker.steps);
-            const percent = (miles / JourneyRoute.totalMiles) * 100;
-            const position = JourneyRoute.getPositionAtPercent(percent);
+            console.log(`[Map] Positioning ${walker.name} at ${miles} miles`);
 
-            const x = (position.x / 100) * this.imageWidth;
-            const y = (position.y / 100) * this.imageHeight;
-
-            group.style.transform = `translate(${x}px, ${y}px)`;
+            // Use the actual SVG path to get position, so walker is at trail end
+            if (this.journeyPath && this.pathLength) {
+                const traveledLength = this.getPathLengthAtMiles(miles);
+                const point = this.journeyPath.getPointAtLength(traveledLength);
+                console.log(`[Map] ${walker.name}: pathLength=${this.pathLength}, traveledLength=${traveledLength}, point=(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`);
+                group.style.transform = `translate(${point.x}px, ${point.y}px)`;
+            } else {
+                // Fallback to interpolation if path not ready
+                const percent = (miles / JourneyRoute.totalMiles) * 100;
+                const position = JourneyRoute.getPositionAtPercent(percent);
+                const x = (position.x / 100) * this.imageWidth;
+                const y = (position.y / 100) * this.imageHeight;
+                console.log(`[Map] ${walker.name} (fallback): position=(${x.toFixed(1)}, ${y.toFixed(1)})`);
+                group.style.transform = `translate(${x}px, ${y}px)`;
+            }
         });
+    },
+
+    // Cache for segment lengths (calculated once when path is drawn)
+    segmentLengths: null,
+    segmentStartLengths: null,
+
+    /**
+     * Calculate and cache the actual SVG path length for each segment
+     */
+    calculateSegmentLengths() {
+        if (!this.journeyPath || this.segmentLengths) return;
+
+        const waypoints = JourneyRoute.waypoints;
+        this.segmentLengths = [];
+        this.segmentStartLengths = [0];
+
+        // Sample the path to find where each waypoint falls
+        const totalLength = this.journeyPath.getTotalLength();
+        let runningLength = 0;
+
+        for (let i = 0; i < waypoints.length - 1; i++) {
+            const wp1 = waypoints[i];
+            const wp2 = waypoints[i + 1];
+
+            // Convert waypoint coords to pixels
+            const x1 = (wp1.x / 100) * this.imageWidth;
+            const y1 = (wp1.y / 100) * this.imageHeight;
+            const x2 = (wp2.x / 100) * this.imageWidth;
+            const y2 = (wp2.y / 100) * this.imageHeight;
+
+            // Find path length to each waypoint by searching along the path
+            const startLen = this.findPathLengthToPoint(x1, y1, runningLength, totalLength);
+            const endLen = this.findPathLengthToPoint(x2, y2, startLen, totalLength);
+
+            const segmentLength = endLen - startLen;
+            this.segmentLengths.push(segmentLength);
+            runningLength = endLen;
+            this.segmentStartLengths.push(runningLength);
+        }
+
+        console.log('[Map] Segment lengths calculated:', this.segmentLengths);
+    },
+
+    /**
+     * Find the path length to a specific point on the map
+     */
+    findPathLengthToPoint(targetX, targetY, startSearch, endSearch) {
+        const step = 10; // Search resolution
+        let bestLength = startSearch;
+        let bestDist = Infinity;
+
+        for (let len = startSearch; len <= endSearch; len += step) {
+            const point = this.journeyPath.getPointAtLength(len);
+            const dist = Math.hypot(point.x - targetX, point.y - targetY);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestLength = len;
+            }
+        }
+
+        // Refine search around best match
+        const refineStart = Math.max(startSearch, bestLength - step);
+        const refineEnd = Math.min(endSearch, bestLength + step);
+        for (let len = refineStart; len <= refineEnd; len += 1) {
+            const point = this.journeyPath.getPointAtLength(len);
+            const dist = Math.hypot(point.x - targetX, point.y - targetY);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestLength = len;
+            }
+        }
+
+        return bestLength;
     },
 
     /**
      * Calculate the path length up to a given mile marker
-     * This accounts for the curved path between waypoints
+     * Uses actual SVG path segment lengths for accuracy
      */
     getPathLengthAtMiles(miles) {
         const waypoints = JourneyRoute.waypoints;
 
-        // Find which segment we're in
-        let prevWaypoint = waypoints[0];
-        let nextWaypoint = waypoints[1];
-        let segmentIndex = 0;
+        // Ensure segment lengths are calculated
+        this.calculateSegmentLengths();
 
+        // Past the last waypoint
+        if (miles >= waypoints[waypoints.length - 1].miles) {
+            return this.pathLength;
+        }
+
+        // Find which segment we're in
+        let segmentIndex = 0;
         for (let i = 0; i < waypoints.length - 1; i++) {
             if (miles >= waypoints[i].miles && miles < waypoints[i + 1].miles) {
-                prevWaypoint = waypoints[i];
-                nextWaypoint = waypoints[i + 1];
                 segmentIndex = i;
                 break;
             }
-            if (miles >= waypoints[waypoints.length - 1].miles) {
-                // Past the last waypoint
-                return this.pathLength;
-            }
         }
 
-        // Calculate what fraction of this segment has been traveled
+        const prevWaypoint = waypoints[segmentIndex];
+        const nextWaypoint = waypoints[segmentIndex + 1];
+
+        // Calculate what fraction of this segment has been traveled (by miles)
         const segmentMiles = nextWaypoint.miles - prevWaypoint.miles;
         const milesIntoSegment = miles - prevWaypoint.miles;
         const segmentProgress = milesIntoSegment / segmentMiles;
 
-        // Calculate path length for complete segments
-        // Each segment is roughly equal in the SVG path
+        // Use actual segment lengths if available
+        if (this.segmentLengths && this.segmentStartLengths) {
+            const segmentStartLength = this.segmentStartLengths[segmentIndex];
+            const segmentPathLength = this.segmentLengths[segmentIndex];
+            return segmentStartLength + (segmentProgress * segmentPathLength);
+        }
+
+        // Fallback to equal segments
         const segmentCount = waypoints.length - 1;
         const avgSegmentLength = this.pathLength / segmentCount;
-
-        const completedSegmentsLength = segmentIndex * avgSegmentLength;
-        const currentSegmentLength = segmentProgress * avgSegmentLength;
-
-        return completedSegmentsLength + currentSegmentLength;
+        return (segmentIndex * avgSegmentLength) + (segmentProgress * avgSegmentLength);
     },
 
     /**
