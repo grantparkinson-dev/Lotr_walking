@@ -1,6 +1,6 @@
 /**
  * 3D Map Rendering Module using Three.js
- * Handles 3D terrain, path drawing, walker positioning, and weather effects
+ * Isometric-style flat map with billboard POI sprites
  */
 
 const Map3D = {
@@ -11,24 +11,81 @@ const Map3D = {
     controls: null,
 
     // Map objects
-    terrain: null,
+    mapPlane: null,
     pathLine: null,
-    landmarks: [],
-    walkers: [],
+    poiObjects: [],
+    walkerObjects: [],
+
+    // Loaded textures cache
+    textureCache: {},
+    textureLoader: null,
 
     // Weather systems
     rainParticles: null,
     snowParticles: null,
-    fog: null,
-    currentWeather: 'clear', // 'clear', 'rain', 'snow', 'fog'
+    currentWeather: 'clear',
 
-    // Map dimensions (matching the original 2D map)
-    mapWidth: 7680,
-    mapHeight: 4386,
-    terrainScale: 2, // Scale factor for 3D world
+    // Map dimensions
+    mapWidth: 2000,
+    mapHeight: 1142,
 
     // Animation
     animationId: null,
+
+    // POI image configuration - maps POI names/types to image files
+    // Place images in assets/pois/ folder
+    poiImages: {
+        // Specific locations (by name) - matched to actual filenames
+        'Mount Doom': 'assets/pois/mtdoom-removebg-preview.png',
+        'Minas Tirith': 'assets/pois/ministirith-removebg-preview.png',
+        'Minas Morgul': 'assets/pois/minasmorgul-removebg-preview.png',
+        'Rivendell': 'assets/pois/rivendell-removebg-preview.png',
+        'Lothlórien': 'assets/pois/Lothlorien-removebg-preview.png',
+        'Hobbiton': 'assets/pois/Hobbiton-removebg-preview.png',
+        'Black Gate': 'assets/pois/blackgate-removebg-preview.png',
+        'Helm\'s Deep': 'assets/pois/helms_deep-removebg-preview.png',
+        'Edoras': 'assets/pois/edoras-removebg-preview.png',
+        'Isengard': 'assets/pois/isengard.png',
+        'Fangorn Forest': 'assets/pois/fanghornforest-removebg-preview.png',
+        'Dead Marshes': 'assets/pois/deadmarshes-removebg-preview.png',
+        'Weathertop': 'assets/pois/weathertop-removebg-preview.png',
+        'Argonath': 'assets/pois/argnoath-removebg-preview.png',
+        'Cirith Ungol': 'assets/pois/Cirith_Ungol-removebg-preview.png',
+        'Barad-dûr': 'assets/pois/barad-dur.png',
+
+        // Fallback by type
+        '_mountain': 'assets/pois/mountain.png',
+        '_city': 'assets/pois/city.png',
+        '_forest': 'assets/pois/forest.png',
+        '_water': 'assets/pois/water.png',
+        '_waypoint': 'assets/pois/waypoint.png',
+        '_default': 'assets/pois/default.png'
+    },
+
+    // Billboard sizes by type (width, height in world units)
+    poiSizes: {
+        'Mount Doom': { w: 80, h: 100 },
+        'Minas Tirith': { w: 80, h: 100 },
+        'Minas Morgul': { w: 70, h: 90 },
+        'Rivendell': { w: 70, h: 80 },
+        'Lothlórien': { w: 70, h: 80 },
+        'Hobbiton': { w: 60, h: 60 },
+        'Black Gate': { w: 80, h: 70 },
+        'Helm\'s Deep': { w: 80, h: 80 },
+        'Edoras': { w: 70, h: 80 },
+        'Fangorn Forest': { w: 70, h: 80 },
+        'Dead Marshes': { w: 60, h: 50 },
+        'Weathertop': { w: 60, h: 70 },
+        'Argonath': { w: 80, h: 100 },
+        'Cirith Ungol': { w: 60, h: 80 },
+        'Barad-dûr': { w: 50, h: 120 },
+        '_mountain': { w: 60, h: 70 },
+        '_city': { w: 50, h: 60 },
+        '_forest': { w: 50, h: 50 },
+        '_water': { w: 40, h: 30 },
+        '_waypoint': { w: 25, h: 25 },
+        '_default': { w: 40, h: 40 }
+    },
 
     /**
      * Initialize the 3D map
@@ -40,49 +97,39 @@ const Map3D = {
             return;
         }
 
-        // Set up Three.js scene
-        this.setupScene(container);
+        this.textureLoader = new THREE.TextureLoader();
+
+        this.setupScene();
         this.setupCamera(container);
         this.setupRenderer(container);
         this.setupControls();
         this.setupLights();
 
-        // Create terrain with map texture
-        await this.createTerrain();
-
-        // Draw journey path
+        await this.createMapPlane();
         this.createJourneyPath();
-
-        // Create landmarks
-        this.createLandmarks();
-
-        // Set up weather systems
+        await this.createPOIs();
         this.setupWeatherSystems();
 
-        // Start animation loop
         this.animate();
 
-        // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
     },
 
     /**
      * Set up the Three.js scene
      */
-    setupScene(container) {
+    setupScene() {
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x1a1209); // Dark parchment color
+        this.scene.background = new THREE.Color(0x1a1209);
     },
 
     /**
-     * Set up camera
+     * Set up camera for isometric-ish view
      */
     setupCamera(container) {
         const aspect = container.clientWidth / container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(60, aspect, 1, 10000);
-
-        // Position camera for dramatic view of mountainous terrain
-        this.camera.position.set(-500, 2000, 2000);
+        this.camera = new THREE.PerspectiveCamera(45, aspect, 1, 10000);
+        this.camera.position.set(0, 1200, 800);
         this.camera.lookAt(0, 0, 0);
     },
 
@@ -95,87 +142,64 @@ const Map3D = {
             alpha: true
         });
         this.renderer.setSize(container.clientWidth, container.clientHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(this.renderer.domElement);
     },
 
     /**
-     * Set up orbit controls for camera
+     * Set up orbit controls - restricted to stay above map
      */
     setupControls() {
         this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.minDistance = 500;
-        this.controls.maxDistance = 4000;
-        this.controls.maxPolarAngle = Math.PI / 2.2; // Don't go below horizon
+        this.controls.minDistance = 400;
+        this.controls.maxDistance = 2500;
+        this.controls.minPolarAngle = 0.2;
+        this.controls.maxPolarAngle = Math.PI / 2.5;
+        this.controls.enablePan = true;
+        this.controls.panSpeed = 0.8;
     },
 
     /**
      * Set up scene lighting
      */
     setupLights() {
-        // Ambient light for base illumination
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
         this.scene.add(ambientLight);
 
-        // Directional light (sun) with shadows
-        const directionalLight = new THREE.DirectionalLight(0xffd7a0, 0.8);
-        directionalLight.position.set(1000, 2000, 1000);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.camera.left = -2000;
-        directionalLight.shadow.camera.right = 2000;
-        directionalLight.shadow.camera.top = 2000;
-        directionalLight.shadow.camera.bottom = -2000;
-        directionalLight.shadow.camera.near = 0.5;
-        directionalLight.shadow.camera.far = 5000;
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        this.scene.add(directionalLight);
+        const sunLight = new THREE.DirectionalLight(0xffd7a0, 0.6);
+        sunLight.position.set(500, 1000, 500);
+        this.scene.add(sunLight);
 
-        // Atmospheric rim light
-        const rimLight = new THREE.DirectionalLight(0x4a6fa5, 0.3);
-        rimLight.position.set(-1000, 500, -1000);
-        this.scene.add(rimLight);
+        const fillLight = new THREE.DirectionalLight(0x4a6fa5, 0.3);
+        fillLight.position.set(-500, 300, -500);
+        this.scene.add(fillLight);
     },
 
     /**
-     * Create the terrain mesh with map texture and height displacement
+     * Create flat map plane with texture
      */
-    async createTerrain() {
+    async createMapPlane() {
         return new Promise((resolve) => {
-            const textureLoader = new THREE.TextureLoader();
+            this.textureLoader.load('assets/map.webp', (texture) => {
+                texture.minFilter = THREE.LinearFilter;
+                texture.magFilter = THREE.LinearFilter;
 
-            // Load the map texture
-            textureLoader.load('assets/map.webp', (mapTexture) => {
-                // Create high-resolution plane geometry for detailed terrain
-                const segments = 256; // Higher resolution for smoother mountains
-                const geometry = new THREE.PlaneGeometry(
-                    this.mapWidth / this.terrainScale,
-                    this.mapHeight / this.terrainScale,
-                    segments,
-                    segments
-                );
-
-                // Generate heightmap from image brightness
-                this.generateHeightmapFromTexture(mapTexture, geometry, segments);
-
-                // Create material with the map texture
+                const geometry = new THREE.PlaneGeometry(this.mapWidth, this.mapHeight);
                 const material = new THREE.MeshStandardMaterial({
-                    map: mapTexture,
-                    roughness: 0.85,
-                    metalness: 0.15,
-                    side: THREE.DoubleSide,
-                    flatShading: false // Smooth shading for terrain
+                    map: texture,
+                    roughness: 0.9,
+                    metalness: 0.1,
+                    side: THREE.FrontSide
                 });
 
-                this.terrain = new THREE.Mesh(geometry, material);
-                this.terrain.rotation.x = -Math.PI / 2; // Rotate to be horizontal
-                this.terrain.receiveShadow = true;
-                this.terrain.castShadow = true;
-                this.scene.add(this.terrain);
+                this.mapPlane = new THREE.Mesh(geometry, material);
+                this.mapPlane.rotation.x = -Math.PI / 2;
+                this.mapPlane.receiveShadow = true;
+                this.scene.add(this.mapPlane);
 
                 resolve();
             });
@@ -183,204 +207,231 @@ const Map3D = {
     },
 
     /**
-     * Generate heightmap from texture brightness
-     * Darker areas = lower elevation, lighter = higher elevation
+     * Convert map percentage coords to 3D world coords
      */
-    generateHeightmapFromTexture(texture, geometry, segments) {
-        const canvas = document.createElement('canvas');
-        const size = segments + 1;
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-
-        // Draw texture to canvas to read pixel data
-        const img = texture.image;
-        ctx.drawImage(img, 0, 0, size, size);
-        const imageData = ctx.getImageData(0, 0, size, size);
-        const pixels = imageData.data;
-
-        // Apply height based on brightness
-        const positions = geometry.attributes.position;
-        const maxHeight = 300; // Maximum elevation
-        const baseHeight = -50; // Sea level offset
-
-        for (let i = 0; i < positions.count; i++) {
-            // Get grid position
-            const x = i % size;
-            const y = Math.floor(i / size);
-            const pixelIndex = (y * size + x) * 4;
-
-            // Calculate brightness (average of RGB)
-            const r = pixels[pixelIndex];
-            const g = pixels[pixelIndex + 1];
-            const b = pixels[pixelIndex + 2];
-            const brightness = (r + g + b) / (3 * 255);
-
-            // Apply height with enhanced mountainous features
-            // Use exponential curve to make mountains more dramatic
-            let height = baseHeight + (Math.pow(brightness, 1.5) * maxHeight);
-
-            // Add some procedural noise for natural variation
-            const noiseFreq = 0.05;
-            const noise = this.simplex2D(x * noiseFreq, y * noiseFreq) * 20;
-            height += noise;
-
-            positions.setZ(i, height);
-        }
-
-        // Recompute normals for proper lighting
-        geometry.computeVertexNormals();
+    mapToWorld(xPercent, yPercent) {
+        const x = ((xPercent - 50) / 100) * this.mapWidth;
+        const z = ((yPercent - 50) / 100) * this.mapHeight;
+        return { x, z };
     },
 
     /**
-     * Simple 2D Perlin-like noise for terrain variation
-     */
-    simplex2D(x, y) {
-        // Simple pseudo-random noise function
-        const sin1 = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-        const sin2 = Math.sin(x * 93.9898 + y * 47.233) * 28365.5453;
-        return (sin1 - Math.floor(sin1) + sin2 - Math.floor(sin2)) / 2 - 0.5;
-    },
-
-    /**
-     * Create the journey path as a 3D tube that follows terrain
+     * Create the journey path as a glowing line above the map
      */
     createJourneyPath() {
         const points = JourneyRoute.waypoints.map(wp => {
-            // Convert 2D percentage coords to 3D world coords
-            const x = ((wp.x - 50) / 100) * (this.mapWidth / this.terrainScale);
-            const z = ((wp.y - 50) / 100) * (this.mapHeight / this.terrainScale);
-
-            // Get terrain height at this position
-            const terrainHeight = this.getTerrainHeightAt(x, z);
-
-            // Elevate path above terrain
-            return new THREE.Vector3(x, terrainHeight + 30, z);
+            const pos = this.mapToWorld(wp.x, wp.y);
+            return new THREE.Vector3(pos.x, 3, pos.z);
         });
 
-        // Create smooth curve through points
         const curve = new THREE.CatmullRomCurve3(points);
 
-        // Create tube geometry
-        const tubeGeometry = new THREE.TubeGeometry(curve, 200, 10, 8, false);
-
-        // Create glowing material for the path
-        const pathMaterial = new THREE.MeshStandardMaterial({
+        const tubeGeometry = new THREE.TubeGeometry(curve, 200, 2, 8, false);
+        const tubeMaterial = new THREE.MeshStandardMaterial({
             color: 0xffd700,
-            emissive: 0xffd700,
-            emissiveIntensity: 0.6,
-            roughness: 0.2,
-            metalness: 0.8
+            emissive: 0xffa500,
+            emissiveIntensity: 0.5,
+            roughness: 0.3,
+            metalness: 0.7
         });
 
-        this.pathLine = new THREE.Mesh(tubeGeometry, pathMaterial);
-        this.pathLine.castShadow = true;
+        this.pathLine = new THREE.Mesh(tubeGeometry, tubeMaterial);
         this.scene.add(this.pathLine);
 
-        // Store curve for walker animation
         this.pathCurve = curve;
     },
 
     /**
-     * Get terrain height at a specific x, z position
+     * Load a texture with caching
      */
-    getTerrainHeightAt(x, z) {
-        if (!this.terrain) return 0;
+    loadTexture(url) {
+        return new Promise((resolve) => {
+            if (this.textureCache[url]) {
+                resolve(this.textureCache[url]);
+                return;
+            }
 
-        // Convert world coords to terrain local coords
-        const geometry = this.terrain.geometry;
-        const positions = geometry.attributes.position;
-
-        // Get terrain dimensions
-        const width = this.mapWidth / this.terrainScale;
-        const height = this.mapHeight / this.terrainScale;
-
-        // Convert to UV coordinates (0 to 1)
-        const u = (x / width) + 0.5;
-        const v = (z / height) + 0.5;
-
-        // Clamp to terrain bounds
-        if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
-
-        // Get grid position
-        const segments = 256;
-        const gridX = Math.floor(u * segments);
-        const gridY = Math.floor(v * segments);
-        const vertexIndex = gridY * (segments + 1) + gridX;
-
-        // Get height from geometry
-        if (vertexIndex >= 0 && vertexIndex < positions.count) {
-            return positions.getZ(vertexIndex);
-        }
-
-        return 0;
+            this.textureLoader.load(
+                url,
+                (texture) => {
+                    texture.minFilter = THREE.LinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
+                    this.textureCache[url] = texture;
+                    resolve(texture);
+                },
+                undefined,
+                () => {
+                    // On error, resolve with null
+                    resolve(null);
+                }
+            );
+        });
     },
 
     /**
-     * Create 3D landmark markers that follow terrain
+     * Get the image URL for a POI
      */
-    createLandmarks() {
-        JourneyRoute.waypoints.forEach((waypoint, index) => {
-            // Convert to 3D coordinates
-            const x = ((waypoint.x - 50) / 100) * (this.mapWidth / this.terrainScale);
-            const z = ((waypoint.y - 50) / 100) * (this.mapHeight / this.terrainScale);
+    getPoiImageUrl(name, type) {
+        // Check for specific name first
+        if (this.poiImages[name]) {
+            return this.poiImages[name];
+        }
+        // Fall back to type
+        if (this.poiImages['_' + type]) {
+            return this.poiImages['_' + type];
+        }
+        // Default fallback
+        return this.poiImages['_default'];
+    },
 
-            // Get terrain height at this location
-            const terrainHeight = this.getTerrainHeightAt(x, z);
-            const baseHeight = terrainHeight + 40; // Elevated above terrain
+    /**
+     * Get the size for a POI billboard
+     */
+    getPoiSize(name, type) {
+        if (this.poiSizes[name]) {
+            return this.poiSizes[name];
+        }
+        if (this.poiSizes['_' + type]) {
+            return this.poiSizes['_' + type];
+        }
+        return this.poiSizes['_default'];
+    },
 
-            // Create landmark group
-            const group = new THREE.Group();
+    /**
+     * Create 3D POI billboards
+     */
+    async createPOIs() {
+        // Create waypoint markers
+        for (const wp of JourneyRoute.waypoints) {
+            await this.createBillboard(wp.x, wp.y, wp.name, 'waypoint');
+        }
 
-            // Glowing sphere
-            const sphereGeometry = new THREE.SphereGeometry(15, 16, 16);
-            const sphereMaterial = new THREE.MeshStandardMaterial({
-                color: 0xffd700,
-                emissive: 0xffa500,
-                emissiveIntensity: 0.9,
-                roughness: 0.2,
-                metalness: 0.8
-            });
-            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-            sphere.position.set(x, baseHeight, z);
-            sphere.castShadow = true;
-            group.add(sphere);
+        // Create additional landmarks
+        if (JourneyRoute.landmarks) {
+            for (const lm of JourneyRoute.landmarks) {
+                await this.createBillboard(lm.x, lm.y, lm.name, lm.type);
+            }
+        }
+    },
 
-            // Outer glow ring
-            const ringGeometry = new THREE.RingGeometry(20, 25, 32);
-            const ringMaterial = new THREE.MeshBasicMaterial({
-                color: 0xffd700,
+    /**
+     * Create a billboard sprite for a POI
+     */
+    async createBillboard(xPercent, yPercent, name, type) {
+        const pos = this.mapToWorld(xPercent, yPercent);
+        const imageUrl = this.getPoiImageUrl(name, type);
+        const size = this.getPoiSize(name, type);
+
+        // Try to load the texture
+        const texture = await this.loadTexture(imageUrl);
+
+        let material;
+        if (texture) {
+            // Use loaded image
+            material = new THREE.SpriteMaterial({
+                map: texture,
                 transparent: true,
-                opacity: 0.4,
-                side: THREE.DoubleSide
+                alphaTest: 0.1
             });
-            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-            ring.position.set(x, baseHeight, z);
-            ring.rotation.x = -Math.PI / 2;
-            group.add(ring);
+        } else {
+            // Fallback to colored placeholder
+            material = this.createFallbackMaterial(name, type);
+        }
 
-            // Add vertical beam of light
-            const beamGeometry = new THREE.CylinderGeometry(2, 2, terrainHeight + 40, 8);
-            const beamMaterial = new THREE.MeshBasicMaterial({
-                color: 0xffd700,
-                transparent: true,
-                opacity: 0.2
-            });
-            const beam = new THREE.Mesh(beamGeometry, beamMaterial);
-            beam.position.set(x, baseHeight / 2, z);
-            group.add(beam);
+        const sprite = new THREE.Sprite(material);
+        sprite.position.set(pos.x, size.h / 2 + 5, pos.z);
+        sprite.scale.set(size.w, size.h, 1);
+        sprite.userData = { name, type, baseY: size.h / 2 + 5 };
 
-            // Add pulsing animation data
-            group.userData = {
-                waypoint: waypoint,
-                pulsPhase: Math.random() * Math.PI * 2,
-                baseY: baseHeight,
-                terrainHeight: terrainHeight
-            };
+        this.poiObjects.push(sprite);
+        this.scene.add(sprite);
 
-            this.landmarks.push(group);
-            this.scene.add(group);
+        // Add a subtle shadow/glow circle on the ground
+        this.addGroundMarker(pos.x, pos.z, name, type);
+    },
+
+    /**
+     * Create fallback material when image not found
+     */
+    createFallbackMaterial(name, type) {
+        // Create a canvas-based fallback
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+
+        // Background based on type
+        const colors = {
+            mountain: '#5c5c5c',
+            city: '#d4c4a8',
+            forest: '#228b22',
+            water: '#4169e1',
+            waypoint: '#ffd700'
+        };
+        const color = colors[type] || '#888888';
+
+        // Draw a simple icon
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        if (type === 'mountain') {
+            ctx.moveTo(64, 10);
+            ctx.lineTo(118, 118);
+            ctx.lineTo(10, 118);
+            ctx.closePath();
+        } else if (type === 'city') {
+            ctx.fillRect(44, 40, 40, 78);
+            ctx.fillRect(54, 20, 20, 30);
+        } else if (type === 'forest') {
+            ctx.moveTo(64, 10);
+            ctx.lineTo(100, 70);
+            ctx.lineTo(28, 70);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillRect(54, 70, 20, 48);
+        } else {
+            ctx.arc(64, 64, 50, 0, Math.PI * 2);
+        }
+        ctx.fill();
+
+        // Add border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        const texture = new THREE.CanvasTexture(canvas);
+        return new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true
         });
+    },
+
+    /**
+     * Add a ground marker/shadow under the billboard
+     */
+    addGroundMarker(x, z, name, type) {
+        const colors = {
+            mountain: 0x5c5c5c,
+            city: 0xffd700,
+            forest: 0x228b22,
+            water: 0x4169e1,
+            waypoint: 0xffd700
+        };
+        const color = colors[type] || 0xffd700;
+
+        // Glowing ring on the ground
+        const ringGeometry = new THREE.RingGeometry(8, 12, 32);
+        const ringMaterial = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.5,
+            side: THREE.DoubleSide
+        });
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(x, 1, z);
+        ring.userData = { name, type, isGroundMarker: true };
+        this.poiObjects.push(ring);
+        this.scene.add(ring);
     },
 
     /**
@@ -389,25 +440,22 @@ const Map3D = {
     setupWeatherSystems() {
         this.setupRain();
         this.setupSnow();
-        this.setupFog();
     },
 
     /**
      * Create rain particle system
      */
     setupRain() {
-        const particleCount = 5000;
+        const particleCount = 3000;
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
         const velocities = new Float32Array(particleCount);
 
-        const bounds = this.mapWidth / this.terrainScale / 2;
-
         for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * bounds * 3;
-            positions[i * 3 + 1] = Math.random() * 1500;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * bounds * 3;
-            velocities[i] = 5 + Math.random() * 10;
+            positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 1.5;
+            positions[i * 3 + 1] = Math.random() * 500;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 1.5;
+            velocities[i] = 5 + Math.random() * 5;
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -415,10 +463,9 @@ const Map3D = {
 
         const material = new THREE.PointsMaterial({
             color: 0x8eb8e5,
-            size: 3,
+            size: 2,
             transparent: true,
-            opacity: 0.6,
-            blending: THREE.AdditiveBlending
+            opacity: 0.6
         });
 
         this.rainParticles = new THREE.Points(geometry, material);
@@ -430,17 +477,15 @@ const Map3D = {
      * Create snow particle system
      */
     setupSnow() {
-        const particleCount = 3000;
+        const particleCount = 2000;
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
         const velocities = new Float32Array(particleCount);
 
-        const bounds = this.mapWidth / this.terrainScale / 2;
-
         for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * bounds * 3;
-            positions[i * 3 + 1] = Math.random() * 1500;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * bounds * 3;
+            positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 1.5;
+            positions[i * 3 + 1] = Math.random() * 500;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 1.5;
             velocities[i] = 1 + Math.random() * 2;
         }
 
@@ -449,10 +494,9 @@ const Map3D = {
 
         const material = new THREE.PointsMaterial({
             color: 0xffffff,
-            size: 5,
+            size: 4,
             transparent: true,
-            opacity: 0.8,
-            map: this.createSnowflakeTexture()
+            opacity: 0.8
         });
 
         this.snowParticles = new THREE.Points(geometry, material);
@@ -461,72 +505,55 @@ const Map3D = {
     },
 
     /**
-     * Create snowflake texture
-     */
-    createSnowflakeTexture() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 32;
-        canvas.height = 32;
-        const ctx = canvas.getContext('2d');
-
-        const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-        gradient.addColorStop(0, 'rgba(255,255,255,1)');
-        gradient.addColorStop(0.5, 'rgba(255,255,255,0.5)');
-        gradient.addColorStop(1, 'rgba(255,255,255,0)');
-
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 32, 32);
-
-        const texture = new THREE.CanvasTexture(canvas);
-        return texture;
-    },
-
-    /**
-     * Set up fog
-     */
-    setupFog() {
-        // Exponential fog for atmospheric depth
-        this.fog = new THREE.FogExp2(0x9fa8b0, 0.0005);
-    },
-
-    /**
      * Set weather condition
      */
     setWeather(weather) {
         this.currentWeather = weather;
 
-        // Hide all weather effects
         if (this.rainParticles) this.rainParticles.visible = false;
         if (this.snowParticles) this.snowParticles.visible = false;
         this.scene.fog = null;
 
-        // Show selected weather
         switch (weather) {
             case 'rain':
                 this.rainParticles.visible = true;
-                this.scene.fog = new THREE.FogExp2(0x555555, 0.0003);
+                this.scene.fog = new THREE.FogExp2(0x555555, 0.0008);
                 break;
             case 'snow':
                 this.snowParticles.visible = true;
-                this.scene.fog = new THREE.FogExp2(0xcccccc, 0.0002);
+                this.scene.fog = new THREE.FogExp2(0xcccccc, 0.0005);
                 break;
             case 'fog':
-                this.scene.fog = this.fog;
-                break;
-            case 'clear':
-            default:
-                // No weather effects
+                this.scene.fog = new THREE.FogExp2(0x9fa8b0, 0.001);
                 break;
         }
+    },
+
+    /**
+     * Update animations
+     */
+    updateAnimations() {
+        const time = Date.now() * 0.001;
+
+        // Animate POI sprites - subtle hover
+        this.poiObjects.forEach(obj => {
+            if (obj.isSprite && obj.userData.baseY) {
+                obj.position.y = obj.userData.baseY + Math.sin(time * 1.5 + obj.position.x) * 2;
+            }
+            // Rotate ground markers
+            if (obj.userData.isGroundMarker) {
+                obj.rotation.z += 0.005;
+            }
+        });
+
+        this.updateParticles();
     },
 
     /**
      * Update particle systems
      */
     updateParticles() {
-        const bounds = this.mapWidth / this.terrainScale / 2;
-
-        // Update rain
+        // Rain
         if (this.rainParticles && this.rainParticles.visible) {
             const positions = this.rainParticles.geometry.attributes.position.array;
             const velocities = this.rainParticles.geometry.attributes.velocity.array;
@@ -534,32 +561,30 @@ const Map3D = {
             for (let i = 0; i < positions.length / 3; i++) {
                 positions[i * 3 + 1] -= velocities[i];
 
-                // Reset particle when it hits the ground
                 if (positions[i * 3 + 1] < 0) {
-                    positions[i * 3 + 1] = 1500;
-                    positions[i * 3] = (Math.random() - 0.5) * bounds * 3;
-                    positions[i * 3 + 2] = (Math.random() - 0.5) * bounds * 3;
+                    positions[i * 3 + 1] = 500;
+                    positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 1.5;
+                    positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 1.5;
                 }
             }
 
             this.rainParticles.geometry.attributes.position.needsUpdate = true;
         }
 
-        // Update snow
+        // Snow
         if (this.snowParticles && this.snowParticles.visible) {
             const positions = this.snowParticles.geometry.attributes.position.array;
             const velocities = this.snowParticles.geometry.attributes.velocity.array;
+            const time = Date.now() * 0.001;
 
             for (let i = 0; i < positions.length / 3; i++) {
                 positions[i * 3 + 1] -= velocities[i];
-                positions[i * 3] += Math.sin(Date.now() * 0.001 + i) * 0.5; // Drift
-                positions[i * 3 + 2] += Math.cos(Date.now() * 0.001 + i) * 0.5;
+                positions[i * 3] += Math.sin(time + i) * 0.3;
 
-                // Reset particle when it hits the ground
                 if (positions[i * 3 + 1] < 0) {
-                    positions[i * 3 + 1] = 1500;
-                    positions[i * 3] = (Math.random() - 0.5) * bounds * 3;
-                    positions[i * 3 + 2] = (Math.random() - 0.5) * bounds * 3;
+                    positions[i * 3 + 1] = 500;
+                    positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 1.5;
+                    positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 1.5;
                 }
             }
 
@@ -568,80 +593,64 @@ const Map3D = {
     },
 
     /**
-     * Update landmarks with pulsing animation
+     * Update walker positions
      */
-    updateLandmarks() {
-        const time = Date.now() * 0.001;
-
-        this.landmarks.forEach((group) => {
-            const sphere = group.children[0];
-            const ring = group.children[1];
-            const data = group.userData;
-
-            // Pulsing glow
-            const pulse = Math.sin(time * 2 + data.pulsPhase) * 0.5 + 0.5;
-            sphere.material.emissiveIntensity = 0.5 + pulse * 0.5;
-
-            // Floating animation
-            sphere.position.y = data.baseY + Math.sin(time + data.pulsPhase) * 5;
-            ring.position.y = sphere.position.y;
-
-            // Rotating ring
-            ring.rotation.z += 0.01;
-        });
-    },
-
-    /**
-     * Update walker positions on 3D terrain
-     */
-    updateWalkers(walkers) {
-        // Clear existing walkers
-        this.walkers.forEach(walker => this.scene.remove(walker));
-        this.walkers = [];
+    update(walkers) {
+        // Remove old walker objects
+        this.walkerObjects.forEach(obj => this.scene.remove(obj));
+        this.walkerObjects = [];
 
         walkers.forEach((walker, index) => {
             const miles = walker.miles || JourneyRoute.stepsToMiles(walker.steps);
-            const percent = miles / JourneyRoute.totalMiles;
+            const percent = Math.min(miles / JourneyRoute.totalMiles, 1);
 
-            // Get position along path curve (already terrain-aware from createJourneyPath)
-            const point = this.pathCurve.getPointAt(Math.min(percent, 1));
+            const point = this.pathCurve.getPointAt(percent);
 
-            // Create walker mesh group
-            const walkerGroup = new THREE.Group();
-
-            // Glowing sphere for walker
-            const geometry = new THREE.SphereGeometry(25, 16, 16);
+            // Create walker sprite
             const color = index === 0 ? 0x00ff88 : 0xff4488;
-            const material = new THREE.MeshStandardMaterial({
-                color: color,
-                emissive: color,
-                emissiveIntensity: 1.0,
-                roughness: 0.2,
-                metalness: 0.8
+
+            // Try to load walker image, fall back to colored circle
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            // Glowing circle
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, index === 0 ? '#00ff88' : '#ff4488');
+            gradient.addColorStop(0.5, index === 0 ? '#00cc66' : '#cc3366');
+            gradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 64, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({
+                map: texture,
+                transparent: true
             });
 
-            const walkerMesh = new THREE.Mesh(geometry, material);
-            walkerMesh.castShadow = true;
-            walkerGroup.add(walkerMesh);
+            const sprite = new THREE.Sprite(material);
+            sprite.position.copy(point);
+            sprite.position.y = 30;
+            sprite.scale.set(40, 40, 1);
 
-            // Add glow ring around walker
-            const ringGeometry = new THREE.RingGeometry(30, 35, 32);
+            this.walkerObjects.push(sprite);
+            this.scene.add(sprite);
+
+            // Ground ring
+            const ringGeometry = new THREE.RingGeometry(12, 16, 32);
             const ringMaterial = new THREE.MeshBasicMaterial({
                 color: color,
                 transparent: true,
-                opacity: 0.5,
+                opacity: 0.6,
                 side: THREE.DoubleSide
             });
             const ring = new THREE.Mesh(ringGeometry, ringMaterial);
             ring.rotation.x = -Math.PI / 2;
-            walkerGroup.add(ring);
+            ring.position.set(point.x, 2, point.z);
 
-            // Position group on path
-            walkerGroup.position.copy(point);
-            walkerGroup.position.y += 50; // Elevate above path
-
-            this.walkers.push(walkerGroup);
-            this.scene.add(walkerGroup);
+            this.walkerObjects.push(ring);
+            this.scene.add(ring);
         });
     },
 
@@ -651,16 +660,8 @@ const Map3D = {
     animate() {
         this.animationId = requestAnimationFrame(() => this.animate());
 
-        // Update controls
         this.controls.update();
-
-        // Update particles
-        this.updateParticles();
-
-        // Update landmarks
-        this.updateLandmarks();
-
-        // Render scene
+        this.updateAnimations();
         this.renderer.render(this.scene, this.camera);
     },
 
@@ -674,13 +675,6 @@ const Map3D = {
         this.camera.aspect = container.clientWidth / container.clientHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(container.clientWidth, container.clientHeight);
-    },
-
-    /**
-     * Update map with walker data
-     */
-    update(walkers) {
-        this.updateWalkers(walkers);
     },
 
     /**
