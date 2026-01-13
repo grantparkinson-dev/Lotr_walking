@@ -70,6 +70,43 @@ const SheetsAPI = {
     },
 
     /**
+     * Fetches progress for ALL walkers (for 3D view showing both)
+     * @returns {Promise<Array<{name: string, miles: number, steps: number}>>}
+     */
+    async fetchAllProgress() {
+        const results = [];
+
+        for (const walkerId of Object.keys(this.walkerConfigs)) {
+            const walker = this.walkerConfigs[walkerId];
+            console.log(`[Fetch] Fetching ${walkerId}...`);
+
+            try {
+                const data = await this.fetchFromUrl(walker.csvUrl);
+                if (data.totalMiles > 0) {
+                    const walkerData = {
+                        name: walker.name,
+                        miles: data.totalMiles,
+                        steps: Math.round(data.totalMiles * 2000)
+                    };
+                    results.push(walkerData);
+                    this.saveToCache(walkerId, walkerData);
+                    console.log(`[Fetch] Success! ${walker.name}: ${data.totalMiles} miles`);
+                } else {
+                    // Try cache
+                    const cached = this.loadFromCache(walkerId);
+                    if (cached) results.push(cached);
+                }
+            } catch (error) {
+                console.warn(`[Fetch] Failed for ${walker.name}:`, error.message);
+                const cached = this.loadFromCache(walkerId);
+                if (cached) results.push(cached);
+            }
+        }
+
+        return results;
+    },
+
+    /**
      * Fetches progress for the selected walker
      * @returns {Promise<Array<{name: string, miles: number, steps: number}>>}
      */
@@ -260,17 +297,27 @@ const SheetsAPI = {
     }
 };
 
-// For demo/testing when no sheet is configured
+// For demo/testing when no sheet is configured or fetch fails
 const DemoData = {
+    // Hardcoded walker data as fallback
+    hardcodedWalkers: {
+        joely: { name: 'Joely', miles: 843.7, steps: 1687400 },
+        kylie: { name: 'Kylie', miles: 571.3, steps: 1142600 }
+    },
+
     getWalkers() {
         const selectedWalker = SheetsAPI.selectedWalker;
         if (selectedWalker === 'kylie') {
-            return [
-                { name: 'Kylie', miles: 571.3, steps: 1142600 }
-            ];
+            return [this.hardcodedWalkers.kylie];
         }
+        return [this.hardcodedWalkers.joely];
+    },
+
+    // Get both walkers for views that show everyone
+    getAllWalkers() {
         return [
-            { name: 'Joely', miles: 813.8, steps: 1627600 }
+            this.hardcodedWalkers.joely,
+            this.hardcodedWalkers.kylie
         ];
     }
 };

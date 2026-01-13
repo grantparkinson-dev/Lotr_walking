@@ -23,6 +23,13 @@
                     <button class="map-btn" id="zoomOut" title="Zoom Out">−</button>
                     <button class="map-btn" id="zoomFit" title="Fit to View">⊡</button>
                     <button class="map-btn" id="zoomReset" title="Center on Journey">◎</button>
+                    <button class="map-btn" id="toggle3D" title="Toggle 3D View">3D</button>
+                </div>
+                <div class="weather-controls">
+                    <button class="weather-btn active" data-weather="clear" title="Clear">☀</button>
+                    <button class="weather-btn" data-weather="rain" title="Rain">🌧</button>
+                    <button class="weather-btn" data-weather="snow" title="Snow">❄</button>
+                    <button class="weather-btn" data-weather="fog" title="Fog">🌫</button>
                 </div>
                 <div class="map-viewport" id="mapViewport">
                     <div class="map-wrapper" id="mapWrapper">
@@ -72,7 +79,36 @@
                         </svg>
                     </div>
                 </div>
+                <!-- 3D Map Container (hidden by default) -->
+                <div class="map3d-container" id="map3dContainer" style="display: none;"></div>
+                <!-- 3D Navigation Controls (shown in 3D mode) -->
+                <div class="map3d-nav-controls" id="map3dNavControls" style="display: none;">
+                    <div class="nav-section">
+                        <span class="nav-label">Jump To</span>
+                        <button class="nav-btn" data-location="hobbiton" title="Go to Hobbiton">Shire</button>
+                        <button class="nav-btn nav-btn-primary" data-location="walker" title="Go to Walker">Walker</button>
+                        <button class="nav-btn" data-location="mountdoom" title="Go to Mount Doom">Doom</button>
+                    </div>
+                    <div class="nav-section">
+                        <span class="nav-label">Move</span>
+                        <div class="nav-dpad">
+                            <button class="dpad-btn dpad-up" data-dir="up" title="Move Forward">▲</button>
+                            <button class="dpad-btn dpad-left" data-dir="left" title="Move Left">◀</button>
+                            <button class="dpad-btn dpad-right" data-dir="right" title="Move Right">▶</button>
+                            <button class="dpad-btn dpad-down" data-dir="down" title="Move Back">▼</button>
+                        </div>
+                    </div>
+                    <div class="nav-section">
+                        <span class="nav-label">Zoom</span>
+                        <button class="nav-btn" data-zoom="in" title="Zoom In">+</button>
+                        <button class="nav-btn" data-zoom="out" title="Zoom Out">−</button>
+                    </div>
+                    <div class="nav-section">
+                        <button class="nav-btn nav-btn-wide" id="resetView3D" title="Reset View">Reset View</button>
+                    </div>
+                </div>
                 <div class="map-hint" id="mapHint">Scroll to zoom • Drag to pan</div>
+                <div class="map-hint map3d-hint" id="map3dHint" style="display: none;">WASD/Arrows to move • Scroll to zoom • Drag to rotate • Click POI to focus</div>
             </div>
 
             <aside class="stats-panel">
@@ -124,9 +160,14 @@
         <p>Loading journey data...</p>
     </div>
 
+    <!-- Three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
     <script src="data/route.js"></script>
     <script src="js/sheets.js"></script>
     <script src="js/map.js"></script>
+    <script src="js/map3d.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

@@ -7,7 +7,10 @@ console.log('[app.js] Script loaded');
 
 const App = {
     walkers: [],
+    allWalkers: [], // Both walkers for 3D view
     isLoading: true,
+    is3DMode: false,
+    map3dInitialized: false,
 
     /**
      * Initialize the application
@@ -20,6 +23,8 @@ const App = {
 
         // Set up toggle buttons
         this.setupToggle();
+        this.setup3DToggle();
+        this.setupWeatherControls();
 
         // Initialize map renderer
         MapRenderer.init();
@@ -71,31 +76,125 @@ const App = {
     },
 
     /**
-     * Load data from Google Sheets (with localStorage cache fallback)
+     * Set up 3D mode toggle
+     */
+    setup3DToggle() {
+        const toggle3DBtn = document.getElementById('toggle3D');
+        if (!toggle3DBtn) return;
+
+        toggle3DBtn.addEventListener('click', async () => {
+            this.is3DMode = !this.is3DMode;
+
+            const map2D = document.getElementById('mapViewport');
+            const map3D = document.getElementById('map3dContainer');
+            const navControls = document.getElementById('map3dNavControls');
+            const hint2D = document.getElementById('mapHint');
+            const hint3D = document.getElementById('map3dHint');
+
+            if (this.is3DMode) {
+                // Switch to 3D
+                map2D.style.display = 'none';
+                map3D.style.display = 'block';
+                toggle3DBtn.classList.add('active');
+
+                // Show 3D navigation controls and hint
+                if (navControls) navControls.style.display = 'flex';
+                if (hint2D) hint2D.style.display = 'none';
+                if (hint3D) hint3D.style.display = 'block';
+
+                // Initialize 3D map if not already done - show both walkers
+                if (!this.map3dInitialized && typeof Map3D !== 'undefined') {
+                    await Map3D.init(this.allWalkers);
+                    Map3D.update(this.allWalkers);
+                    this.map3dInitialized = true;
+                } else if (typeof Map3D !== 'undefined') {
+                    Map3D.update(this.allWalkers);
+                }
+            } else {
+                // Switch to 2D
+                map2D.style.display = 'block';
+                map3D.style.display = 'none';
+                toggle3DBtn.classList.remove('active');
+
+                // Hide 3D navigation controls and show 2D hint
+                if (navControls) navControls.style.display = 'none';
+                if (hint2D) hint2D.style.display = 'block';
+                if (hint3D) hint3D.style.display = 'none';
+            }
+        });
+    },
+
+    /**
+     * Set up weather controls
+     */
+    setupWeatherControls() {
+        const weatherBtns = document.querySelectorAll('.weather-btn');
+        weatherBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const weather = btn.dataset.weather;
+
+                // Update active state
+                weatherBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Apply weather to 3D map
+                if (this.is3DMode && this.map3dInitialized && typeof Map3D !== 'undefined') {
+                    Map3D.setWeather(weather);
+                }
+            });
+        });
+    },
+
+    /**
+     * Load data from Google Sheets or demo data
      */
     async loadData() {
         console.log('[App] Loading data...');
         try {
+            // Try to fetch both walkers from sheets
             if (SheetsAPI.isConfigured()) {
-                this.walkers = await SheetsAPI.fetchProgress();
-                console.log('[App] Walkers data:', this.walkers);
-            } else {
-                console.warn('[App] SheetsAPI not configured');
+                this.allWalkers = await SheetsAPI.fetchAllProgress();
+                console.log('[App] Fetched all walkers:', this.allWalkers);
             }
 
-            if (!this.walkers || this.walkers.length === 0) {
-                console.warn('[App] No walker data available');
+            // Fall back to demo data if sheets didn't return anything
+            if (!this.allWalkers || this.allWalkers.length === 0) {
+                console.log('[App] Using demo data fallback');
+                this.allWalkers = DemoData.getAllWalkers();
             }
+
+            // Set walkers to selected walker for backward compatibility
+            this.walkers = this.allWalkers;
 
             this.updateUI();
-            if (this.walkers && this.walkers.length > 0) {
-                MapRenderer.update(this.walkers);
+
+            // Filter to only the selected walker for 2D map
+            const selectedWalker = this.allWalkers.find(w => w.name.toLowerCase() === SheetsAPI.selectedWalker);
+            const walkersFor2D = selectedWalker ? [selectedWalker] : this.allWalkers;
+            MapRenderer.update(walkersFor2D);
+
+            // Update 3D map if initialized - show both walkers
+            if (this.is3DMode && this.map3dInitialized && typeof Map3D !== 'undefined') {
+                Map3D.update(this.allWalkers);
             }
+
             this.updateLastUpdated();
 
         } catch (error) {
             console.error('[App] Error loading data:', error);
+            // Fall back to demo data on error
+            this.walkers = DemoData.getAllWalkers();
+            this.allWalkers = DemoData.getAllWalkers();
             this.updateUI();
+
+            // Filter to only the selected walker for 2D map
+            const selectedWalker = this.allWalkers.find(w => w.name.toLowerCase() === SheetsAPI.selectedWalker);
+            const walkersFor2D = selectedWalker ? [selectedWalker] : this.allWalkers;
+            MapRenderer.update(walkersFor2D);
+
+            if (this.is3DMode && this.map3dInitialized && typeof Map3D !== 'undefined') {
+                Map3D.update(this.allWalkers);
+            }
         }
     },
 
@@ -114,7 +213,10 @@ const App = {
         const container = document.getElementById('walkersContainer');
         container.innerHTML = '';
 
-        this.walkers.forEach((walker, index) => {
+        // Always show both walkers
+        const walkersToShow = this.allWalkers.length > 0 ? this.allWalkers : this.walkers;
+
+        walkersToShow.forEach((walker, index) => {
             // Use miles directly if available, otherwise calculate from steps
             const miles = walker.miles || JourneyRoute.stepsToMiles(walker.steps);
             const percent = (miles / JourneyRoute.totalMiles) * 100;
