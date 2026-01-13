@@ -1,3 +1,5 @@
+console.log('[app.js] Script loaded');
+
 /**
  * Walk to Mordor - Main Application
  * Ties together all modules and manages UI state
@@ -147,6 +149,7 @@ const App = {
      * Load data from Google Sheets or demo data
      */
     async loadData() {
+        console.log('[App] Loading data...');
         try {
             // Try to fetch both walkers from sheets
             if (SheetsAPI.isConfigured()) {
@@ -251,7 +254,16 @@ const App = {
                         <span class="label">Next Stop</span>
                         <span class="value">${nextLocation.name}</span>
                     </div>
-                    ` : ''}
+                    <div class="stat-row stat-row-highlight">
+                        <span class="label">Distance</span>
+                        <span class="value">${(nextLocation.miles - miles).toFixed(1)} miles to go</span>
+                    </div>
+                    ` : `
+                    <div class="stat-row stat-row-highlight">
+                        <span class="label">Status</span>
+                        <span class="value">Journey Complete!</span>
+                    </div>
+                    `}
                 </div>
                 <div class="progress-bar-container">
                     <div class="progress-bar">
@@ -271,8 +283,11 @@ const App = {
     updateCurrentLocation() {
         const container = document.getElementById('currentLocation');
 
-        if (this.walkers.length === 0) {
-            container.innerHTML = '<p>No travelers found</p>';
+        if (!this.walkers || this.walkers.length === 0) {
+            container.innerHTML = `
+                <h4>Loading Data...</h4>
+                <p style="font-size: 0.85rem;">Check browser console for details</p>
+            `;
             return;
         }
 
