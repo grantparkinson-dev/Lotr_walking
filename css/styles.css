@@ -53,6 +53,19 @@ body {
     flex-direction: column;
 }
 
+/* Larger screens: use more width */
+@media (min-width: 1800px) {
+    .page-container {
+        max-width: 1800px;
+    }
+}
+
+@media (min-width: 2000px) {
+    .page-container {
+        max-width: 95vw;
+    }
+}
+
 /* ===== Header ===== */
 .header {
     text-align: center;
@@ -65,6 +78,13 @@ body {
     border-bottom: none;
     position: relative;
     overflow: hidden;
+}
+
+/* Compact header on large screens */
+@media (min-width: 1400px) {
+    .header {
+        padding: 1.25rem 1rem;
+    }
 }
 
 /* Decorative corner flourishes */
@@ -114,7 +134,7 @@ body {
 /* ===== Main Content ===== */
 .main-content {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 280px;
     gap: 0;
     flex: 1;
     background: var(--color-parchment);
@@ -124,12 +144,44 @@ body {
     overflow: hidden;
 }
 
+/* Larger screens: more map space */
+@media (min-width: 1400px) {
+    .main-content {
+        grid-template-columns: 1fr 300px;
+    }
+}
+
+@media (min-width: 1600px) {
+    .main-content {
+        grid-template-columns: 1fr 320px;
+    }
+}
+
 /* ===== Map Container ===== */
 .map-container {
     position: relative;
     overflow: hidden;
     background: #1a1209;
     min-height: 500px;
+}
+
+/* Larger screens: taller map */
+@media (min-width: 1200px) {
+    .map-container {
+        min-height: 600px;
+    }
+}
+
+@media (min-width: 1400px) {
+    .map-container {
+        min-height: 700px;
+    }
+}
+
+@media (min-width: 1600px) {
+    .map-container {
+        min-height: calc(100vh - 200px);
+    }
 }
 
 /* Decorative vignette around the map */
@@ -316,6 +368,148 @@ body {
     display: block;
     width: 100%;
     height: 100%;
+}
+
+/* 3D Navigation Controls */
+.map3d-nav-controls {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    z-index: 100;
+    display: flex;
+    gap: 0.75rem;
+    background: rgba(26, 18, 9, 0.85);
+    padding: 0.75rem;
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.nav-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.5rem;
+    border-right: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.nav-section:last-child {
+    border-right: none;
+}
+
+.nav-label {
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    color: var(--color-gold);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.2rem;
+}
+
+.nav-btn {
+    min-width: 50px;
+    height: 32px;
+    border: 1px solid var(--color-gold-dark);
+    border-radius: 6px;
+    background: linear-gradient(135deg,
+        rgba(244, 228, 188, 0.9) 0%,
+        rgba(212, 196, 160, 0.9) 100%);
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0 0.5rem;
+}
+
+.nav-btn:hover {
+    background: linear-gradient(135deg,
+        rgba(255, 215, 0, 0.4) 0%,
+        rgba(244, 228, 188, 1) 100%);
+    border-color: var(--color-gold);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+}
+
+.nav-btn:active {
+    transform: translateY(1px);
+}
+
+.nav-btn-primary {
+    background: linear-gradient(135deg, var(--color-gold-dark), var(--color-gold));
+    color: var(--color-ink);
+    border-color: var(--color-gold);
+}
+
+.nav-btn-primary:hover {
+    background: linear-gradient(135deg, var(--color-gold), #ffdd44);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+.nav-btn-wide {
+    min-width: 80px;
+}
+
+/* D-Pad Navigation */
+.nav-dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 28px);
+    grid-template-rows: repeat(2, 28px);
+    gap: 2px;
+}
+
+.dpad-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--color-gold-dark);
+    border-radius: 4px;
+    background: linear-gradient(135deg,
+        rgba(244, 228, 188, 0.9) 0%,
+        rgba(212, 196, 160, 0.9) 100%);
+    color: var(--color-ink);
+    font-size: 0.7rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s ease;
+}
+
+.dpad-btn:hover {
+    background: linear-gradient(135deg, var(--color-gold-dark), var(--color-gold));
+    color: var(--color-ink);
+}
+
+.dpad-btn:active {
+    transform: scale(0.95);
+}
+
+.dpad-up {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.dpad-left {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.dpad-right {
+    grid-column: 3;
+    grid-row: 2;
+}
+
+.dpad-down {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+/* 3D mode hint */
+.map3d-hint {
+    bottom: 5rem;
 }
 
 .map-hint {
@@ -942,6 +1136,17 @@ body {
 
 .footer-attribution::before {
     content: '\2014 ';
+}
+
+/* Compact footer on large screens */
+@media (min-width: 1400px) {
+    .footer {
+        padding: 1rem;
+    }
+    .footer p {
+        font-size: 1rem;
+        margin-bottom: 0.25rem;
+    }
 }
 
 /* ===== Loading Overlay ===== */

@@ -130,30 +130,6 @@ const JourneyRoute = {
     // Additional landmarks for 3D decoration (not part of main journey)
     landmarks: [
     {
-        name: 'Misty Mountains North',
-        x: 51.42,
-        y: 15.71,
-        type: 'mountain'
-    },
-    {
-        name: 'Misty Mountains Central',
-        x: 53.71,
-        y: 26.84,
-        type: 'mountain'
-    },
-    {
-        name: 'Misty Mountains South',
-        x: 50.24,
-        y: 40.80,
-        type: 'mountain'
-    },
-    {
-        name: 'Misty Mountains Far South',
-        x: 48.78,
-        y: 44.89,
-        type: 'mountain'
-    },
-    {
         name: 'Minas Tirith',
         x: 61.40,
         y: 60.69,
@@ -178,46 +154,10 @@ const JourneyRoute = {
         type: 'city'
     },
     {
-        name: 'Emyn Muil',
-        x: 61.58,
-        y: 47.57,
-        type: 'mountain'
-    },
-    {
         name: 'Fangorn Forest',
         x: 52.76,
         y: 44.00,
         type: 'forest'
-    },
-    {
-        name: 'Lothlórien',
-        x: 54.91,
-        y: 37.34,
-        type: 'forest'
-    },
-    {
-        name: 'Dead Marshes',
-        x: 63.49,
-        y: 49.71,
-        type: 'water'
-    },
-    {
-        name: 'Rivendell',
-        x: 51.20,
-        y: 24.95,
-        type: 'city'
-    },
-    {
-        name: 'Cirith Ungol',
-        x: 66.78,
-        y: 62.98,
-        type: 'mountain'
-    },
-    {
-        name: 'Mount Doom',
-        x: 70.58,
-        y: 58.24,
-        type: 'mountain'
     }
 ],
 

@@ -5,6 +5,7 @@
 
 const App = {
     walkers: [],
+    allWalkers: [], // Both walkers for 3D view
     isLoading: true,
     is3DMode: false,
     map3dInitialized: false,
@@ -84,6 +85,9 @@ const App = {
 
             const map2D = document.getElementById('mapViewport');
             const map3D = document.getElementById('map3dContainer');
+            const navControls = document.getElementById('map3dNavControls');
+            const hint2D = document.getElementById('mapHint');
+            const hint3D = document.getElementById('map3dHint');
 
             if (this.is3DMode) {
                 // Switch to 3D
@@ -91,19 +95,29 @@ const App = {
                 map3D.style.display = 'block';
                 toggle3DBtn.classList.add('active');
 
-                // Initialize 3D map if not already done
+                // Show 3D navigation controls and hint
+                if (navControls) navControls.style.display = 'flex';
+                if (hint2D) hint2D.style.display = 'none';
+                if (hint3D) hint3D.style.display = 'block';
+
+                // Initialize 3D map if not already done - show both walkers
                 if (!this.map3dInitialized && typeof Map3D !== 'undefined') {
-                    await Map3D.init();
-                    Map3D.update(this.walkers);
+                    await Map3D.init(this.allWalkers);
+                    Map3D.update(this.allWalkers);
                     this.map3dInitialized = true;
                 } else if (typeof Map3D !== 'undefined') {
-                    Map3D.update(this.walkers);
+                    Map3D.update(this.allWalkers);
                 }
             } else {
                 // Switch to 2D
                 map2D.style.display = 'block';
                 map3D.style.display = 'none';
                 toggle3DBtn.classList.remove('active');
+
+                // Hide 3D navigation controls and show 2D hint
+                if (navControls) navControls.style.display = 'none';
+                if (hint2D) hint2D.style.display = 'block';
+                if (hint3D) hint3D.style.display = 'none';
             }
         });
     },
@@ -140,12 +154,15 @@ const App = {
                 this.walkers = DemoData.getWalkers();
             }
 
+            // Always load both walkers for 3D view (using hardcoded data)
+            this.allWalkers = DemoData.getAllWalkers();
+
             this.updateUI();
             MapRenderer.update(this.walkers);
 
-            // Update 3D map if initialized
+            // Update 3D map if initialized - show both walkers
             if (this.is3DMode && this.map3dInitialized && typeof Map3D !== 'undefined') {
-                Map3D.update(this.walkers);
+                Map3D.update(this.allWalkers);
             }
 
             this.updateLastUpdated();
@@ -153,11 +170,12 @@ const App = {
         } catch (error) {
             // Fall back to demo data on error
             this.walkers = DemoData.getWalkers();
+            this.allWalkers = DemoData.getAllWalkers();
             this.updateUI();
             MapRenderer.update(this.walkers);
 
             if (this.is3DMode && this.map3dInitialized && typeof Map3D !== 'undefined') {
-                Map3D.update(this.walkers);
+                Map3D.update(this.allWalkers);
             }
         }
     },

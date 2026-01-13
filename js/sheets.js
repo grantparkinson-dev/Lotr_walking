@@ -178,15 +178,25 @@ const SheetsAPI = {
 
 // For demo/testing when no sheet is configured
 const DemoData = {
+    // Hardcoded walker data
+    hardcodedWalkers: {
+        joely: { name: 'Joely', miles: 813.8, steps: 1627600 },
+        kylie: { name: 'Kylie', miles: 571.3, steps: 1142600 }
+    },
+
     getWalkers() {
         const selectedWalker = SheetsAPI.selectedWalker;
         if (selectedWalker === 'kylie') {
-            return [
-                { name: 'Kylie', miles: 571.3, steps: 1142600 }
-            ];
+            return [this.hardcodedWalkers.kylie];
         }
+        return [this.hardcodedWalkers.joely];
+    },
+
+    // Get both walkers for 3D view
+    getAllWalkers() {
         return [
-            { name: 'Joely', miles: 813.8, steps: 1627600 }
+            this.hardcodedWalkers.joely,
+            this.hardcodedWalkers.kylie
         ];
     }
 };

@@ -9,6 +9,8 @@ const Map3D = {
     camera: null,
     renderer: null,
     controls: null,
+    raycaster: null,
+    mouse: null,
 
     // Map objects
     mapPlane: null,
@@ -23,6 +25,7 @@ const Map3D = {
     // Weather systems
     rainParticles: null,
     snowParticles: null,
+    lightningLight: null,
     currentWeather: 'clear',
 
     // Map dimensions
@@ -32,10 +35,33 @@ const Map3D = {
     // Animation
     animationId: null,
 
-    // POI image configuration - maps POI names/types to image files
-    // Place images in assets/pois/ folder
+    // Tooltip element
+    tooltip: null,
+
+    // Current walker position for camera
+    currentWalkerPosition: null,
+
+    // Keyboard state for smooth movement
+    keys: {
+        forward: false,
+        backward: false,
+        left: false,
+        right: false,
+        zoomIn: false,
+        zoomOut: false
+    },
+    moveSpeed: 5,
+    zoomSpeed: 8,
+
+    // Walker sprite images
+    walkerImages: {
+        'joely': 'assets/pois/hobbit-walker_joely-removebg-preview.png',
+        'kylie': 'assets/pois/hobbit_walker-removebg-preview.png',
+        '_default': null // Will use colored circle fallback
+    },
+
+    // POI image configuration
     poiImages: {
-        // Specific locations (by name) - matched to actual filenames
         'Mount Doom': 'assets/pois/mtdoom-removebg-preview.png',
         'Minas Tirith': 'assets/pois/ministirith-removebg-preview.png',
         'Minas Morgul': 'assets/pois/minasmorgul-removebg-preview.png',
@@ -52,8 +78,6 @@ const Map3D = {
         'Argonath': 'assets/pois/argnoath-removebg-preview.png',
         'Cirith Ungol': 'assets/pois/Cirith_Ungol-removebg-preview.png',
         'Barad-dûr': 'assets/pois/barad-dur.png',
-
-        // Fallback by type
         '_mountain': 'assets/pois/mountain.png',
         '_city': 'assets/pois/city.png',
         '_forest': 'assets/pois/forest.png',
@@ -62,35 +86,59 @@ const Map3D = {
         '_default': 'assets/pois/default.png'
     },
 
-    // Billboard sizes by type (width, height in world units)
+    // Small billboard sizes
     poiSizes: {
-        'Mount Doom': { w: 80, h: 100 },
-        'Minas Tirith': { w: 80, h: 100 },
-        'Minas Morgul': { w: 70, h: 90 },
-        'Rivendell': { w: 70, h: 80 },
-        'Lothlórien': { w: 70, h: 80 },
-        'Hobbiton': { w: 60, h: 60 },
-        'Black Gate': { w: 80, h: 70 },
-        'Helm\'s Deep': { w: 80, h: 80 },
-        'Edoras': { w: 70, h: 80 },
-        'Fangorn Forest': { w: 70, h: 80 },
-        'Dead Marshes': { w: 60, h: 50 },
-        'Weathertop': { w: 60, h: 70 },
-        'Argonath': { w: 80, h: 100 },
-        'Cirith Ungol': { w: 60, h: 80 },
-        'Barad-dûr': { w: 50, h: 120 },
-        '_mountain': { w: 60, h: 70 },
-        '_city': { w: 50, h: 60 },
-        '_forest': { w: 50, h: 50 },
-        '_water': { w: 40, h: 30 },
-        '_waypoint': { w: 25, h: 25 },
-        '_default': { w: 40, h: 40 }
+        'Mount Doom': { w: 30, h: 40 },
+        'Minas Tirith': { w: 30, h: 40 },
+        'Minas Morgul': { w: 28, h: 34 },
+        'Rivendell': { w: 28, h: 30 },
+        'Lothlórien': { w: 28, h: 30 },
+        'Hobbiton': { w: 24, h: 24 },
+        'Black Gate': { w: 30, h: 28 },
+        'Helm\'s Deep': { w: 30, h: 30 },
+        'Edoras': { w: 28, h: 30 },
+        'Fangorn Forest': { w: 28, h: 30 },
+        'Dead Marshes': { w: 24, h: 22 },
+        'Weathertop': { w: 24, h: 28 },
+        'Argonath': { w: 30, h: 40 },
+        'Cirith Ungol': { w: 24, h: 30 },
+        'Barad-dûr': { w: 22, h: 50 },
+        '_mountain': { w: 24, h: 28 },
+        '_city': { w: 22, h: 24 },
+        '_forest': { w: 22, h: 22 },
+        '_water': { w: 18, h: 16 },
+        '_waypoint': { w: 12, h: 12 },
+        '_default': { w: 16, h: 16 }
+    },
+
+    // POI Lore for tooltips - what happened to Frodo & Sam here
+    poiLore: {
+        'Hobbiton': 'Where Frodo inherited Bag End from Bilbo and began his journey with the One Ring. Sam joined as his loyal companion.',
+        'Bree': 'At the Prancing Pony inn, the hobbits met Strider (Aragorn) who became their guide. Frodo accidentally put on the Ring here.',
+        'Weathertop': 'The Witch-king stabbed Frodo with a Morgul blade. Sam bravely defended his wounded master with a burning brand.',
+        'Rivendell': 'Frodo recovered from his wound and the Council of Elrond formed the Fellowship. Frodo volunteered to carry the Ring to Mordor.',
+        'Hollin Ridge': 'The Fellowship rested here before attempting the Redhorn Pass. Crebain spies forced them toward Moria.',
+        'West Gate of Moria': 'Gandalf spoke "Mellon" to open the doors. The Watcher in the Water attacked, and they fled into darkness.',
+        'Exit of Moria': 'After Gandalf fell fighting the Balrog, the Fellowship emerged grief-stricken. Sam comforted a devastated Frodo.',
+        'Lothlórien': 'Lady Galadriel showed Frodo visions in her mirror. She gave him the Phial of Galadriel - "a light in dark places."',
+        'Argonath': 'The Fellowship passed between the towering statues of Isildur and Anárion. The end of their united journey approached.',
+        'Dead Marshes': 'Gollum led Frodo and Sam through the haunted swamp. Frodo nearly fell to the ghostly lights of fallen warriors.',
+        'Black Gate': 'Frodo and Sam saw the impossible strength of Mordor\'s entrance. Gollum convinced them to take the secret path.',
+        'Morgul Road': 'They witnessed the Witch-king lead his army to war. The Ring pulled toward Minas Morgul, but Sam kept Frodo moving.',
+        'Cirith Ungol': 'Gollum led them to Shelob\'s lair. Sam fought the giant spider and believed Frodo dead, taking the Ring briefly.',
+        'Mount Doom': 'At the Crack of Doom, Frodo claimed the Ring. Gollum bit off his finger and fell into the fire, destroying the Ring forever.',
+        'Minas Tirith': 'The White City of Gondor where Gandalf brought Pippin. Later the armies gathered here before the final battle.',
+        'Minas Morgul': 'The Tower of Black Sorcery, once Minas Ithil. Home of the Nazgûl, its green glow filled Frodo with dread.',
+        'Helm\'s Deep': 'The fortress where Rohan made their stand against Saruman\'s army of 10,000 Uruk-hai.',
+        'Edoras': 'Golden hall of Meduseld where Gandalf freed King Théoden from Saruman\'s influence.',
+        'Fangorn Forest': 'Ancient forest of the Ents. Merry and Pippin met Treebeard here, leading to the march on Isengard.',
+        'Emyn Muil': 'The maze of sharp rocks where Frodo and Sam captured Gollum and made him swear to guide them.',
     },
 
     /**
      * Initialize the 3D map
      */
-    async init() {
+    async init(initialWalkerData) {
         const container = document.getElementById('map3dContainer');
         if (!container) {
             console.error('3D map container not found');
@@ -98,21 +146,418 @@ const Map3D = {
         }
 
         this.textureLoader = new THREE.TextureLoader();
+        this.raycaster = new THREE.Raycaster();
+        this.mouse = new THREE.Vector2();
 
         this.setupScene();
         this.setupCamera(container);
         this.setupRenderer(container);
         this.setupControls();
         this.setupLights();
+        this.createTooltip(container);
 
         await this.createMapPlane();
         this.createJourneyPath();
         await this.createPOIs();
         this.setupWeatherSystems();
 
+        // Position camera near walker if data provided
+        if (initialWalkerData && initialWalkerData.length > 0) {
+            this.focusOnWalker(initialWalkerData[0]);
+        }
+
+        this.setupEventListeners(container);
         this.animate();
 
         window.addEventListener('resize', () => this.onWindowResize());
+    },
+
+    /**
+     * Create tooltip element
+     */
+    createTooltip(container) {
+        this.tooltip = document.createElement('div');
+        this.tooltip.className = 'map3d-tooltip';
+        this.tooltip.style.cssText = `
+            position: absolute;
+            background: rgba(20, 15, 10, 0.95);
+            border: 2px solid #c9a227;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #f4e4bc;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 13px;
+            max-width: 300px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        `;
+        container.appendChild(this.tooltip);
+    },
+
+    /**
+     * Set up event listeners for interaction
+     */
+    setupEventListeners(container) {
+        container.addEventListener('mousemove', (e) => this.onMouseMove(e, container));
+        container.addEventListener('click', (e) => this.onMouseClick(e, container));
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => this.onKeyDown(e));
+        document.addEventListener('keyup', (e) => this.onKeyUp(e));
+
+        // Navigation button controls
+        this.setupNavButtons();
+    },
+
+    /**
+     * Set up navigation button click handlers
+     */
+    setupNavButtons() {
+        // Jump to location buttons
+        document.querySelectorAll('[data-location]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const location = btn.dataset.location;
+                this.jumpToLocation(location);
+            });
+        });
+
+        // D-pad movement buttons
+        document.querySelectorAll('[data-dir]').forEach(btn => {
+            btn.addEventListener('mousedown', () => {
+                const dir = btn.dataset.dir;
+                if (dir === 'up') this.keys.forward = true;
+                if (dir === 'down') this.keys.backward = true;
+                if (dir === 'left') this.keys.left = true;
+                if (dir === 'right') this.keys.right = true;
+            });
+            btn.addEventListener('mouseup', () => {
+                this.keys.forward = false;
+                this.keys.backward = false;
+                this.keys.left = false;
+                this.keys.right = false;
+            });
+            btn.addEventListener('mouseleave', () => {
+                this.keys.forward = false;
+                this.keys.backward = false;
+                this.keys.left = false;
+                this.keys.right = false;
+            });
+        });
+
+        // Zoom buttons
+        document.querySelectorAll('[data-zoom]').forEach(btn => {
+            btn.addEventListener('mousedown', () => {
+                if (btn.dataset.zoom === 'in') this.keys.zoomIn = true;
+                if (btn.dataset.zoom === 'out') this.keys.zoomOut = true;
+            });
+            btn.addEventListener('mouseup', () => {
+                this.keys.zoomIn = false;
+                this.keys.zoomOut = false;
+            });
+            btn.addEventListener('mouseleave', () => {
+                this.keys.zoomIn = false;
+                this.keys.zoomOut = false;
+            });
+        });
+
+        // Reset view button
+        const resetBtn = document.getElementById('resetView3D');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.resetView());
+        }
+    },
+
+    /**
+     * Handle keydown for movement
+     */
+    onKeyDown(e) {
+        // Don't capture if typing in input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        switch (e.key.toLowerCase()) {
+            case 'w':
+            case 'arrowup':
+                this.keys.forward = true;
+                e.preventDefault();
+                break;
+            case 's':
+            case 'arrowdown':
+                this.keys.backward = true;
+                e.preventDefault();
+                break;
+            case 'a':
+            case 'arrowleft':
+                this.keys.left = true;
+                e.preventDefault();
+                break;
+            case 'd':
+            case 'arrowright':
+                this.keys.right = true;
+                e.preventDefault();
+                break;
+            case 'q':
+            case '=':
+            case '+':
+                this.keys.zoomIn = true;
+                e.preventDefault();
+                break;
+            case 'e':
+            case '-':
+                this.keys.zoomOut = true;
+                e.preventDefault();
+                break;
+            case 'r':
+                this.resetView();
+                e.preventDefault();
+                break;
+            case 'h':
+                this.jumpToLocation('hobbiton');
+                e.preventDefault();
+                break;
+            case 'f':
+                this.jumpToLocation('walker');
+                e.preventDefault();
+                break;
+            case 'm':
+                this.jumpToLocation('mountdoom');
+                e.preventDefault();
+                break;
+        }
+    },
+
+    /**
+     * Handle keyup for movement
+     */
+    onKeyUp(e) {
+        switch (e.key.toLowerCase()) {
+            case 'w':
+            case 'arrowup':
+                this.keys.forward = false;
+                break;
+            case 's':
+            case 'arrowdown':
+                this.keys.backward = false;
+                break;
+            case 'a':
+            case 'arrowleft':
+                this.keys.left = false;
+                break;
+            case 'd':
+            case 'arrowright':
+                this.keys.right = false;
+                break;
+            case 'q':
+            case '=':
+            case '+':
+                this.keys.zoomIn = false;
+                break;
+            case 'e':
+            case '-':
+                this.keys.zoomOut = false;
+                break;
+        }
+    },
+
+    /**
+     * Process keyboard movement each frame
+     */
+    processKeyboardMovement() {
+        if (!this.controls || !this.camera) return;
+
+        const target = this.controls.target;
+        const camera = this.camera;
+
+        // Get camera direction (ignoring Y)
+        const direction = new THREE.Vector3();
+        camera.getWorldDirection(direction);
+        direction.y = 0;
+        direction.normalize();
+
+        // Get perpendicular direction for strafing
+        const right = new THREE.Vector3();
+        right.crossVectors(direction, new THREE.Vector3(0, 1, 0));
+
+        // Apply movement
+        if (this.keys.forward) {
+            target.add(direction.clone().multiplyScalar(this.moveSpeed));
+            camera.position.add(direction.clone().multiplyScalar(this.moveSpeed));
+        }
+        if (this.keys.backward) {
+            target.sub(direction.clone().multiplyScalar(this.moveSpeed));
+            camera.position.sub(direction.clone().multiplyScalar(this.moveSpeed));
+        }
+        if (this.keys.left) {
+            target.sub(right.clone().multiplyScalar(this.moveSpeed));
+            camera.position.sub(right.clone().multiplyScalar(this.moveSpeed));
+        }
+        if (this.keys.right) {
+            target.add(right.clone().multiplyScalar(this.moveSpeed));
+            camera.position.add(right.clone().multiplyScalar(this.moveSpeed));
+        }
+
+        // Apply zoom
+        if (this.keys.zoomIn) {
+            const zoomDir = new THREE.Vector3().subVectors(target, camera.position).normalize();
+            camera.position.add(zoomDir.multiplyScalar(this.zoomSpeed));
+        }
+        if (this.keys.zoomOut) {
+            const zoomDir = new THREE.Vector3().subVectors(target, camera.position).normalize();
+            camera.position.sub(zoomDir.multiplyScalar(this.zoomSpeed));
+        }
+    },
+
+    /**
+     * Jump to a named location
+     */
+    jumpToLocation(location) {
+        let targetX, targetZ;
+
+        switch (location) {
+            case 'hobbiton':
+                const hobbiton = JourneyRoute.waypoints.find(w => w.name === 'Hobbiton');
+                if (hobbiton) {
+                    const pos = this.mapToWorld(hobbiton.x, hobbiton.y);
+                    targetX = pos.x;
+                    targetZ = pos.z;
+                }
+                break;
+            case 'mountdoom':
+                const doom = JourneyRoute.waypoints.find(w => w.name === 'Mount Doom');
+                if (doom) {
+                    const pos = this.mapToWorld(doom.x, doom.y);
+                    targetX = pos.x;
+                    targetZ = pos.z;
+                }
+                break;
+            case 'walker':
+                if (this.currentWalkerPosition) {
+                    targetX = this.currentWalkerPosition.x;
+                    targetZ = this.currentWalkerPosition.z;
+                }
+                break;
+            default:
+                // Try to find by waypoint name
+                const wp = JourneyRoute.waypoints.find(w => w.name.toLowerCase().includes(location.toLowerCase()));
+                if (wp) {
+                    const pos = this.mapToWorld(wp.x, wp.y);
+                    targetX = pos.x;
+                    targetZ = pos.z;
+                }
+        }
+
+        if (targetX !== undefined && targetZ !== undefined) {
+            this.smoothFocusOn(targetX, targetZ);
+        }
+    },
+
+    /**
+     * Reset camera to default overview position
+     */
+    resetView() {
+        this.camera.position.set(0, 800, 600);
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
+    },
+
+    /**
+     * Handle mouse move for tooltips
+     */
+    onMouseMove(event, container) {
+        const rect = container.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.poiObjects.filter(o => o.isSprite));
+
+        if (intersects.length > 0) {
+            const poi = intersects[0].object;
+            const name = poi.userData.name;
+            const lore = this.poiLore[name] || `A location along the journey to Mount Doom.`;
+
+            this.tooltip.innerHTML = `<strong style="color: #ffd700; font-size: 15px;">${name}</strong><br><br>${lore}`;
+            this.tooltip.style.opacity = '1';
+            this.tooltip.style.left = (event.clientX - rect.left + 15) + 'px';
+            this.tooltip.style.top = (event.clientY - rect.top + 15) + 'px';
+
+            // Keep tooltip in bounds
+            const tooltipRect = this.tooltip.getBoundingClientRect();
+            if (tooltipRect.right > rect.right) {
+                this.tooltip.style.left = (event.clientX - rect.left - tooltipRect.width - 15) + 'px';
+            }
+            if (tooltipRect.bottom > rect.bottom) {
+                this.tooltip.style.top = (event.clientY - rect.top - tooltipRect.height - 15) + 'px';
+            }
+        } else {
+            this.tooltip.style.opacity = '0';
+        }
+    },
+
+    /**
+     * Handle click to focus on POI
+     */
+    onMouseClick(event, container) {
+        const rect = container.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.poiObjects.filter(o => o.isSprite));
+
+        if (intersects.length > 0) {
+            const poi = intersects[0].object;
+            this.smoothFocusOn(poi.position.x, poi.position.z);
+        }
+    },
+
+    /**
+     * Focus camera on a specific walker
+     */
+    focusOnWalker(walker) {
+        const miles = walker.miles || JourneyRoute.stepsToMiles(walker.steps || 0);
+        const percent = Math.min(miles / JourneyRoute.totalMiles, 1);
+        const point = this.pathCurve.getPointAt(percent);
+
+        this.currentWalkerPosition = point;
+
+        // Position camera near walker with offset
+        this.camera.position.set(point.x + 200, 400, point.z + 300);
+        this.controls.target.set(point.x, 0, point.z);
+        this.controls.update();
+    },
+
+    /**
+     * Smoothly animate camera to focus on position
+     */
+    smoothFocusOn(x, z) {
+        const targetPos = { x: x + 150, y: 300, z: z + 200 };
+        const startPos = {
+            x: this.camera.position.x,
+            y: this.camera.position.y,
+            z: this.camera.position.z
+        };
+        const startTarget = this.controls.target.clone();
+        const endTarget = new THREE.Vector3(x, 0, z);
+
+        let progress = 0;
+        const animate = () => {
+            progress += 0.02;
+            if (progress >= 1) return;
+
+            const eased = 1 - Math.pow(1 - progress, 3); // ease out cubic
+
+            this.camera.position.x = startPos.x + (targetPos.x - startPos.x) * eased;
+            this.camera.position.y = startPos.y + (targetPos.y - startPos.y) * eased;
+            this.camera.position.z = startPos.z + (targetPos.z - startPos.z) * eased;
+
+            this.controls.target.lerpVectors(startTarget, endTarget, eased);
+
+            requestAnimationFrame(animate);
+        };
+        animate();
     },
 
     /**
@@ -124,12 +569,12 @@ const Map3D = {
     },
 
     /**
-     * Set up camera for isometric-ish view
+     * Set up camera
      */
     setupCamera(container) {
         const aspect = container.clientWidth / container.clientHeight;
         this.camera = new THREE.PerspectiveCamera(45, aspect, 1, 10000);
-        this.camera.position.set(0, 1200, 800);
+        this.camera.position.set(0, 600, 500);
         this.camera.lookAt(0, 0, 0);
     },
 
@@ -149,34 +594,52 @@ const Map3D = {
     },
 
     /**
-     * Set up orbit controls - restricted to stay above map
+     * Set up orbit controls with better navigation
      */
     setupControls() {
         this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.05;
-        this.controls.minDistance = 400;
-        this.controls.maxDistance = 2500;
-        this.controls.minPolarAngle = 0.2;
-        this.controls.maxPolarAngle = Math.PI / 2.5;
+        this.controls.dampingFactor = 0.08;
+        this.controls.minDistance = 150;
+        this.controls.maxDistance = 2000;
+        this.controls.minPolarAngle = 0.3;
+        this.controls.maxPolarAngle = Math.PI / 2.2;
         this.controls.enablePan = true;
-        this.controls.panSpeed = 0.8;
+        this.controls.panSpeed = 1.2;
+        this.controls.rotateSpeed = 0.8;
+        this.controls.zoomSpeed = 1.5;
+
+        // Smooth keyboard controls
+        this.controls.keys = {
+            LEFT: 'ArrowLeft',
+            UP: 'ArrowUp',
+            RIGHT: 'ArrowRight',
+            BOTTOM: 'ArrowDown'
+        };
+        this.controls.keyPanSpeed = 25;
     },
 
     /**
      * Set up scene lighting
      */
     setupLights() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         this.scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xffd7a0, 0.6);
+        const sunLight = new THREE.DirectionalLight(0xffd7a0, 0.8);
         sunLight.position.set(500, 1000, 500);
+        sunLight.castShadow = true;
         this.scene.add(sunLight);
+        this.sunLight = sunLight;
 
         const fillLight = new THREE.DirectionalLight(0x4a6fa5, 0.3);
         fillLight.position.set(-500, 300, -500);
         this.scene.add(fillLight);
+
+        // Lightning light (hidden by default)
+        this.lightningLight = new THREE.PointLight(0xffffff, 0, 3000);
+        this.lightningLight.position.set(0, 800, 0);
+        this.scene.add(this.lightningLight);
     },
 
     /**
@@ -216,7 +679,7 @@ const Map3D = {
     },
 
     /**
-     * Create the journey path as a glowing line above the map
+     * Create the journey path
      */
     createJourneyPath() {
         const points = JourneyRoute.waypoints.map(wp => {
@@ -226,11 +689,11 @@ const Map3D = {
 
         const curve = new THREE.CatmullRomCurve3(points);
 
-        const tubeGeometry = new THREE.TubeGeometry(curve, 200, 2, 8, false);
+        const tubeGeometry = new THREE.TubeGeometry(curve, 200, 1.5, 8, false);
         const tubeMaterial = new THREE.MeshStandardMaterial({
             color: 0xffd700,
             emissive: 0xffa500,
-            emissiveIntensity: 0.5,
+            emissiveIntensity: 0.4,
             roughness: 0.3,
             metalness: 0.7
         });
@@ -260,10 +723,7 @@ const Map3D = {
                     resolve(texture);
                 },
                 undefined,
-                () => {
-                    // On error, resolve with null
-                    resolve(null);
-                }
+                () => resolve(null)
             );
         });
     },
@@ -272,15 +732,8 @@ const Map3D = {
      * Get the image URL for a POI
      */
     getPoiImageUrl(name, type) {
-        // Check for specific name first
-        if (this.poiImages[name]) {
-            return this.poiImages[name];
-        }
-        // Fall back to type
-        if (this.poiImages['_' + type]) {
-            return this.poiImages['_' + type];
-        }
-        // Default fallback
+        if (this.poiImages[name]) return this.poiImages[name];
+        if (this.poiImages['_' + type]) return this.poiImages['_' + type];
         return this.poiImages['_default'];
     },
 
@@ -288,25 +741,87 @@ const Map3D = {
      * Get the size for a POI billboard
      */
     getPoiSize(name, type) {
-        if (this.poiSizes[name]) {
-            return this.poiSizes[name];
-        }
-        if (this.poiSizes['_' + type]) {
-            return this.poiSizes['_' + type];
-        }
+        if (this.poiSizes[name]) return this.poiSizes[name];
+        if (this.poiSizes['_' + type]) return this.poiSizes['_' + type];
         return this.poiSizes['_default'];
+    },
+
+    /**
+     * Create a text label sprite
+     */
+    createTextSprite(text, options = {}) {
+        const {
+            fontSize = 24,
+            fontFamily = 'Cinzel, serif',
+            color = '#f4e4bc',
+            strokeColor = '#1a1209',
+            strokeWidth = 4,
+            padding = 10,
+            backgroundColor = 'rgba(20, 15, 10, 0.7)',
+            borderColor = '#c9a227',
+            borderWidth = 2,
+            maxWidth = 200
+        } = options;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set font to measure text
+        ctx.font = `${fontSize}px ${fontFamily}`;
+        const metrics = ctx.measureText(text);
+        const textWidth = Math.min(metrics.width, maxWidth);
+
+        // Set canvas size with padding
+        canvas.width = textWidth + padding * 2 + borderWidth * 2;
+        canvas.height = fontSize + padding * 2 + borderWidth * 2;
+
+        // Background
+        ctx.fillStyle = backgroundColor;
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth;
+        ctx.beginPath();
+        ctx.roundRect(borderWidth / 2, borderWidth / 2, canvas.width - borderWidth, canvas.height - borderWidth, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        // Text with stroke
+        ctx.font = `${fontSize}px ${fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Stroke
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = strokeWidth;
+        ctx.strokeText(text, canvas.width / 2, canvas.height / 2);
+
+        // Fill
+        ctx.fillStyle = color;
+        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true
+        });
+
+        const sprite = new THREE.Sprite(material);
+        // Scale based on canvas aspect ratio
+        const scale = 0.5;
+        sprite.scale.set(canvas.width * scale / 10, canvas.height * scale / 10, 1);
+
+        return sprite;
     },
 
     /**
      * Create 3D POI billboards
      */
     async createPOIs() {
-        // Create waypoint markers
         for (const wp of JourneyRoute.waypoints) {
             await this.createBillboard(wp.x, wp.y, wp.name, 'waypoint');
         }
 
-        // Create additional landmarks
         if (JourneyRoute.landmarks) {
             for (const lm of JourneyRoute.landmarks) {
                 await this.createBillboard(lm.x, lm.y, lm.name, lm.type);
@@ -322,45 +837,50 @@ const Map3D = {
         const imageUrl = this.getPoiImageUrl(name, type);
         const size = this.getPoiSize(name, type);
 
-        // Try to load the texture
         const texture = await this.loadTexture(imageUrl);
 
         let material;
         if (texture) {
-            // Use loaded image
             material = new THREE.SpriteMaterial({
                 map: texture,
                 transparent: true,
                 alphaTest: 0.1
             });
         } else {
-            // Fallback to colored placeholder
             material = this.createFallbackMaterial(name, type);
         }
 
         const sprite = new THREE.Sprite(material);
-        sprite.position.set(pos.x, size.h / 2 + 5, pos.z);
+        sprite.position.set(pos.x, size.h / 2 + 3, pos.z);
         sprite.scale.set(size.w, size.h, 1);
-        sprite.userData = { name, type, baseY: size.h / 2 + 5 };
+        sprite.userData = { name, type, baseY: size.h / 2 + 3 };
 
         this.poiObjects.push(sprite);
         this.scene.add(sprite);
 
-        // Add a subtle shadow/glow circle on the ground
+        // Add text label above POI
+        const label = this.createTextSprite(name, {
+            fontSize: type === 'waypoint' ? 16 : 18,
+            padding: 5,
+            backgroundColor: 'rgba(20, 15, 10, 0.8)'
+        });
+        label.position.set(pos.x, size.h + 10, pos.z);
+        label.userData = { isLabel: true, parentName: name };
+        this.poiObjects.push(label);
+        this.scene.add(label);
+
         this.addGroundMarker(pos.x, pos.z, name, type);
     },
 
     /**
-     * Create fallback material when image not found
+     * Create fallback material
      */
     createFallbackMaterial(name, type) {
-        // Create a canvas-based fallback
         const canvas = document.createElement('canvas');
         canvas.width = 128;
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
 
-        // Background based on type
         const colors = {
             mountain: '#5c5c5c',
             city: '#d4c4a8',
@@ -370,7 +890,6 @@ const Map3D = {
         };
         const color = colors[type] || '#888888';
 
-        // Draw a simple icon
         ctx.fillStyle = color;
         ctx.beginPath();
         if (type === 'mountain') {
@@ -392,21 +911,16 @@ const Map3D = {
             ctx.arc(64, 64, 50, 0, Math.PI * 2);
         }
         ctx.fill();
-
-        // Add border
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 3;
         ctx.stroke();
 
         const texture = new THREE.CanvasTexture(canvas);
-        return new THREE.SpriteMaterial({
-            map: texture,
-            transparent: true
-        });
+        return new THREE.SpriteMaterial({ map: texture, transparent: true });
     },
 
     /**
-     * Add a ground marker/shadow under the billboard
+     * Add a ground marker
      */
     addGroundMarker(x, z, name, type) {
         const colors = {
@@ -418,12 +932,11 @@ const Map3D = {
         };
         const color = colors[type] || 0xffd700;
 
-        // Glowing ring on the ground
-        const ringGeometry = new THREE.RingGeometry(8, 12, 32);
+        const ringGeometry = new THREE.RingGeometry(5, 8, 32);
         const ringMaterial = new THREE.MeshBasicMaterial({
             color: color,
             transparent: true,
-            opacity: 0.5,
+            opacity: 0.4,
             side: THREE.DoubleSide
         });
         const ring = new THREE.Mesh(ringGeometry, ringMaterial);
@@ -443,29 +956,30 @@ const Map3D = {
     },
 
     /**
-     * Create rain particle system
+     * Create dramatic rain system
      */
     setupRain() {
-        const particleCount = 3000;
+        const particleCount = 8000;
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
         const velocities = new Float32Array(particleCount);
 
         for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 1.5;
-            positions[i * 3 + 1] = Math.random() * 500;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 1.5;
-            velocities[i] = 5 + Math.random() * 5;
+            positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 2;
+            positions[i * 3 + 1] = Math.random() * 600;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 2;
+            velocities[i] = 8 + Math.random() * 8;
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
 
         const material = new THREE.PointsMaterial({
-            color: 0x8eb8e5,
-            size: 2,
+            color: 0x6699cc,
+            size: 3,
             transparent: true,
-            opacity: 0.6
+            opacity: 0.7,
+            blending: THREE.AdditiveBlending
         });
 
         this.rainParticles = new THREE.Points(geometry, material);
@@ -474,19 +988,21 @@ const Map3D = {
     },
 
     /**
-     * Create snow particle system
+     * Create dramatic snow system
      */
     setupSnow() {
-        const particleCount = 2000;
+        const particleCount = 5000;
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(particleCount * 3);
         const velocities = new Float32Array(particleCount);
+        const sizes = new Float32Array(particleCount);
 
         for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 1.5;
-            positions[i * 3 + 1] = Math.random() * 500;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 1.5;
+            positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 2;
+            positions[i * 3 + 1] = Math.random() * 600;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 2;
             velocities[i] = 1 + Math.random() * 2;
+            sizes[i] = 3 + Math.random() * 4;
         }
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -494,9 +1010,10 @@ const Map3D = {
 
         const material = new THREE.PointsMaterial({
             color: 0xffffff,
-            size: 4,
+            size: 5,
             transparent: true,
-            opacity: 0.8
+            opacity: 0.9,
+            map: this.createSnowflakeTexture()
         });
 
         this.snowParticles = new THREE.Points(geometry, material);
@@ -505,7 +1022,26 @@ const Map3D = {
     },
 
     /**
-     * Set weather condition
+     * Create snowflake texture
+     */
+    createSnowflakeTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 32;
+        canvas.height = 32;
+        const ctx = canvas.getContext('2d');
+
+        const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+        gradient.addColorStop(0, 'rgba(255,255,255,1)');
+        gradient.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 32, 32);
+
+        return new THREE.CanvasTexture(canvas);
+    },
+
+    /**
+     * Set weather condition with dramatic effects
      */
     setWeather(weather) {
         this.currentWeather = weather;
@@ -513,20 +1049,53 @@ const Map3D = {
         if (this.rainParticles) this.rainParticles.visible = false;
         if (this.snowParticles) this.snowParticles.visible = false;
         this.scene.fog = null;
+        this.lightningLight.intensity = 0;
+
+        // Reset ambient light
+        this.scene.children.forEach(child => {
+            if (child.isAmbientLight) child.intensity = 0.7;
+        });
+        if (this.sunLight) this.sunLight.intensity = 0.8;
 
         switch (weather) {
             case 'rain':
                 this.rainParticles.visible = true;
-                this.scene.fog = new THREE.FogExp2(0x555555, 0.0008);
+                this.scene.fog = new THREE.FogExp2(0x333344, 0.0012);
+                this.scene.background = new THREE.Color(0x1a1a2a);
+                this.scene.children.forEach(child => {
+                    if (child.isAmbientLight) child.intensity = 0.4;
+                });
+                if (this.sunLight) this.sunLight.intensity = 0.3;
                 break;
             case 'snow':
                 this.snowParticles.visible = true;
-                this.scene.fog = new THREE.FogExp2(0xcccccc, 0.0005);
+                this.scene.fog = new THREE.FogExp2(0xddeeff, 0.0008);
+                this.scene.background = new THREE.Color(0x8899aa);
                 break;
             case 'fog':
-                this.scene.fog = new THREE.FogExp2(0x9fa8b0, 0.001);
+                this.scene.fog = new THREE.FogExp2(0x7a8a8a, 0.0018);
+                this.scene.background = new THREE.Color(0x5a6a6a);
+                this.scene.children.forEach(child => {
+                    if (child.isAmbientLight) child.intensity = 0.5;
+                });
                 break;
+            default:
+                this.scene.background = new THREE.Color(0x1a1209);
         }
+    },
+
+    /**
+     * Trigger lightning flash
+     */
+    triggerLightning() {
+        if (this.currentWeather !== 'rain') return;
+
+        this.lightningLight.intensity = 3;
+        setTimeout(() => { this.lightningLight.intensity = 0; }, 50);
+        setTimeout(() => { this.lightningLight.intensity = 2; }, 100);
+        setTimeout(() => { this.lightningLight.intensity = 0; }, 150);
+        setTimeout(() => { this.lightningLight.intensity = 1.5; }, 200);
+        setTimeout(() => { this.lightningLight.intensity = 0; }, 250);
     },
 
     /**
@@ -535,16 +1104,20 @@ const Map3D = {
     updateAnimations() {
         const time = Date.now() * 0.001;
 
-        // Animate POI sprites - subtle hover
+        // Animate POI sprites
         this.poiObjects.forEach(obj => {
             if (obj.isSprite && obj.userData.baseY) {
-                obj.position.y = obj.userData.baseY + Math.sin(time * 1.5 + obj.position.x) * 2;
+                obj.position.y = obj.userData.baseY + Math.sin(time * 1.5 + obj.position.x * 0.01) * 1.5;
             }
-            // Rotate ground markers
             if (obj.userData.isGroundMarker) {
-                obj.rotation.z += 0.005;
+                obj.rotation.z += 0.003;
             }
         });
+
+        // Random lightning during rain
+        if (this.currentWeather === 'rain' && Math.random() < 0.002) {
+            this.triggerLightning();
+        }
 
         this.updateParticles();
     },
@@ -553,25 +1126,26 @@ const Map3D = {
      * Update particle systems
      */
     updateParticles() {
-        // Rain
+        // Rain with wind effect
         if (this.rainParticles && this.rainParticles.visible) {
             const positions = this.rainParticles.geometry.attributes.position.array;
             const velocities = this.rainParticles.geometry.attributes.velocity.array;
+            const windX = Math.sin(Date.now() * 0.0005) * 2;
 
             for (let i = 0; i < positions.length / 3; i++) {
                 positions[i * 3 + 1] -= velocities[i];
+                positions[i * 3] += windX * 0.5;
 
                 if (positions[i * 3 + 1] < 0) {
-                    positions[i * 3 + 1] = 500;
-                    positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 1.5;
-                    positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 1.5;
+                    positions[i * 3 + 1] = 600;
+                    positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 2;
+                    positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 2;
                 }
             }
-
             this.rainParticles.geometry.attributes.position.needsUpdate = true;
         }
 
-        // Snow
+        // Snow with swirling
         if (this.snowParticles && this.snowParticles.visible) {
             const positions = this.snowParticles.geometry.attributes.position.array;
             const velocities = this.snowParticles.geometry.attributes.velocity.array;
@@ -579,66 +1153,96 @@ const Map3D = {
 
             for (let i = 0; i < positions.length / 3; i++) {
                 positions[i * 3 + 1] -= velocities[i];
-                positions[i * 3] += Math.sin(time + i) * 0.3;
+                positions[i * 3] += Math.sin(time + i * 0.1) * 0.8;
+                positions[i * 3 + 2] += Math.cos(time * 0.7 + i * 0.1) * 0.5;
 
                 if (positions[i * 3 + 1] < 0) {
-                    positions[i * 3 + 1] = 500;
-                    positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 1.5;
-                    positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 1.5;
+                    positions[i * 3 + 1] = 600;
+                    positions[i * 3] = (Math.random() - 0.5) * this.mapWidth * 2;
+                    positions[i * 3 + 2] = (Math.random() - 0.5) * this.mapHeight * 2;
                 }
             }
-
             this.snowParticles.geometry.attributes.position.needsUpdate = true;
         }
     },
 
     /**
-     * Update walker positions
+     * Update walker positions with hobbit sprites
      */
-    update(walkers) {
+    async update(walkers) {
         // Remove old walker objects
         this.walkerObjects.forEach(obj => this.scene.remove(obj));
         this.walkerObjects = [];
 
-        walkers.forEach((walker, index) => {
-            const miles = walker.miles || JourneyRoute.stepsToMiles(walker.steps);
+        for (let index = 0; index < walkers.length; index++) {
+            const walker = walkers[index];
+            const miles = walker.miles || JourneyRoute.stepsToMiles(walker.steps || 0);
             const percent = Math.min(miles / JourneyRoute.totalMiles, 1);
-
             const point = this.pathCurve.getPointAt(percent);
 
-            // Create walker sprite
+            // Store first walker position
+            if (index === 0) {
+                this.currentWalkerPosition = point;
+            }
+
             const color = index === 0 ? 0x00ff88 : 0xff4488;
+            const walkerName = walker.name ? walker.name.toLowerCase() : '_default';
+            const imageUrl = this.walkerImages[walkerName] || this.walkerImages['_default'];
 
-            // Try to load walker image, fall back to colored circle
-            const canvas = document.createElement('canvas');
-            canvas.width = 64;
-            canvas.height = 64;
-            const ctx = canvas.getContext('2d');
+            let material;
+            if (imageUrl) {
+                const texture = await this.loadTexture(imageUrl);
+                if (texture) {
+                    material = new THREE.SpriteMaterial({
+                        map: texture,
+                        transparent: true
+                    });
+                }
+            }
 
-            // Glowing circle
-            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-            gradient.addColorStop(0, index === 0 ? '#00ff88' : '#ff4488');
-            gradient.addColorStop(0.5, index === 0 ? '#00cc66' : '#cc3366');
-            gradient.addColorStop(1, 'transparent');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 64, 64);
+            if (!material) {
+                // Fallback colored circle
+                const canvas = document.createElement('canvas');
+                canvas.width = 64;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
 
-            const texture = new THREE.CanvasTexture(canvas);
-            const material = new THREE.SpriteMaterial({
-                map: texture,
-                transparent: true
-            });
+                const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+                gradient.addColorStop(0, index === 0 ? '#00ff88' : '#ff4488');
+                gradient.addColorStop(0.5, index === 0 ? '#00cc66' : '#cc3366');
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 64, 64);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            }
 
             const sprite = new THREE.Sprite(material);
             sprite.position.copy(point);
-            sprite.position.y = 30;
-            sprite.scale.set(40, 40, 1);
+            sprite.position.y = 25;
+            sprite.scale.set(30, 30, 1);
 
             this.walkerObjects.push(sprite);
             this.scene.add(sprite);
 
+            // Add name label above walker
+            const labelColor = index === 0 ? '#00ff88' : '#ff4488';
+            const label = this.createTextSprite(walker.name, {
+                fontSize: 20,
+                color: labelColor,
+                padding: 8,
+                backgroundColor: 'rgba(10, 8, 5, 0.85)',
+                borderColor: labelColor,
+                borderWidth: 2
+            });
+            label.position.copy(point);
+            label.position.y = 50;
+            this.walkerObjects.push(label);
+            this.scene.add(label);
+
             // Ground ring
-            const ringGeometry = new THREE.RingGeometry(12, 16, 32);
+            const ringGeometry = new THREE.RingGeometry(10, 14, 32);
             const ringMaterial = new THREE.MeshBasicMaterial({
                 color: color,
                 transparent: true,
@@ -651,7 +1255,7 @@ const Map3D = {
 
             this.walkerObjects.push(ring);
             this.scene.add(ring);
-        });
+        }
     },
 
     /**
@@ -660,6 +1264,7 @@ const Map3D = {
     animate() {
         this.animationId = requestAnimationFrame(() => this.animate());
 
+        this.processKeyboardMovement();
         this.controls.update();
         this.updateAnimations();
         this.renderer.render(this.scene, this.camera);
@@ -681,11 +1286,7 @@ const Map3D = {
      * Clean up
      */
     dispose() {
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-        }
-        if (this.renderer) {
-            this.renderer.dispose();
-        }
+        if (this.animationId) cancelAnimationFrame(this.animationId);
+        if (this.renderer) this.renderer.dispose();
     }
 };
